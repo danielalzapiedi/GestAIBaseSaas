@@ -12,7 +12,7 @@ public static class DbInitializer
 
     public static async Task MigrateAndSeedAsync(AppDbContext db, UserManager<User> userManager, RoleManager<IdentityRole> roleManager, ILogger logger, SeedOptions options, CancellationToken ct = default)
     {
-        var hasMigrations = (await db.Database.GetMigrationsAsync(ct)).Any();
+        var hasMigrations = db.Database.GetMigrations().Any();
         if (hasMigrations)
             await db.Database.MigrateAsync(ct);
         else

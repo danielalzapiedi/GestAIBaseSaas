@@ -27,3 +27,22 @@ public enum BulkPriceAdjustmentType
     Percentage = 0,
     FixedAmount = 1
 }
+
+
+public enum QuoteStatus
+{
+    Draft = 0,
+    Sent = 1,
+    Approved = 2,
+    Rejected = 3,
+    Expired = 4,
+    Converted = 5
+}
+
+public enum SaleStatus
+{
+    Draft = 0,
+    Confirmed = 1,
+    Completed = 2,
+    Cancelled = 3
+}

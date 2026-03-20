@@ -26,7 +26,9 @@ public enum SaasModule
     Categories = 8,
     Products = 9,
     Customers = 10,
-    Suppliers = 11
+    Suppliers = 11,
+    Quotes = 12,
+    Sales = 13
 }
 
 public sealed record ModuleAccessDto(SaasModule Module, bool Allowed);

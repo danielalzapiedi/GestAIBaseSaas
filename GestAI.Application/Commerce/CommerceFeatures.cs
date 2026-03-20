@@ -92,6 +92,38 @@ file static class CommerceFeatureHelpers
         validator.RuleFor(pageSelector).GreaterThanOrEqualTo(1);
         validator.RuleFor(pageSizeSelector).InclusiveBetween(1, MaxPageSize);
     }
+
+    public static async Task<(bool Success, int AccountId, string ErrorCode, string Message)> RequireModuleAccessAsync(IUserAccessService access, SaasModule module, CancellationToken ct)
+    {
+        var accountId = await access.GetCurrentAccountIdAsync(ct);
+        if (!accountId.HasValue)
+            return (false, 0, "account_required", "No se encontró una cuenta activa.");
+
+        if (!await access.HasModuleAccessAsync(accountId.Value, module, ct))
+            return (false, accountId.Value, "forbidden", "No tiene permisos para acceder a este módulo.");
+
+        return (true, accountId.Value, string.Empty, string.Empty);
+    }
+
+    public static async Task<bool> CreatesCategoryCycleAsync(IAppDbContext db, int accountId, int categoryId, int? parentCategoryId, CancellationToken ct)
+    {
+        if (!parentCategoryId.HasValue) return false;
+
+        var visited = new HashSet<int>();
+        var currentParentId = parentCategoryId;
+        while (currentParentId.HasValue)
+        {
+            if (!visited.Add(currentParentId.Value)) return true;
+            if (currentParentId.Value == categoryId) return true;
+
+            currentParentId = await db.ProductCategories.AsNoTracking()
+                .Where(x => x.AccountId == accountId && x.Id == currentParentId.Value)
+                .Select(x => x.ParentCategoryId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        return false;
+    }
 }
 
 public sealed class CreateTenantCommandValidator : AbstractValidator<CreateTenantCommand>
@@ -309,10 +341,11 @@ public sealed class GetBranchesQueryHandler(IAppDbContext db, IUserAccessService
 {
     public async Task<AppResult<PagedResult<BranchListItemDto>>> Handle(GetBranchesQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<PagedResult<BranchListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Branches, ct);
+        if (!scope.Success) return AppResult<PagedResult<BranchListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
 
-        var query = db.Branches.AsNoTracking().Where(x => x.AccountId == accountId.Value);
+        var query = db.Branches.AsNoTracking().Where(x => x.AccountId == accountId);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
@@ -338,11 +371,12 @@ public sealed class GetBranchByIdQueryHandler(IAppDbContext db, IUserAccessServi
 {
     public async Task<AppResult<BranchDetailDto>> Handle(GetBranchByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<BranchDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Branches, ct);
+        if (!scope.Success) return AppResult<BranchDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
 
         var item = await db.Branches.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new BranchDetailDto(x.Id, x.Name, x.Code, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
 
@@ -355,14 +389,15 @@ public sealed class CreateBranchCommandHandler(IAppDbContext db, IUserAccessServ
 {
     public async Task<AppResult<int>> Handle(CreateBranchCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
-        if (await db.Branches.AnyAsync(x => x.AccountId == accountId.Value && x.Code == request.Code.Trim(), ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Branches, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (await db.Branches.AnyAsync(x => x.AccountId == accountId && x.Code == request.Code.Trim(), ct))
             return AppResult<int>.Fail("duplicate_code", "Ya existe una sucursal con ese código.");
 
         var entity = new Branch
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             Name = request.Name.Trim(),
             Code = request.Code.Trim(),
             IsActive = request.IsActive
@@ -370,7 +405,7 @@ public sealed class CreateBranchCommandHandler(IAppDbContext db, IUserAccessServ
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.Branches.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Branch", entity.Id, "created", $"Sucursal creada: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Branch", entity.Id, "created", $"Sucursal creada: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -380,18 +415,19 @@ public sealed class UpdateBranchCommandHandler(IAppDbContext db, IUserAccessServ
 {
     public async Task<AppResult> Handle(UpdateBranchCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Branches, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Sucursal no encontrada.");
-        if (await db.Branches.AnyAsync(x => x.AccountId == accountId.Value && x.Code == request.Code.Trim() && x.Id != request.Id, ct))
+        if (await db.Branches.AnyAsync(x => x.AccountId == accountId && x.Code == request.Code.Trim() && x.Id != request.Id, ct))
             return AppResult.Fail("duplicate_code", "Ya existe otra sucursal con ese código.");
         entity.Name = request.Name.Trim();
         entity.Code = request.Code.Trim();
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Branch", entity.Id, "updated", $"Sucursal actualizada: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Branch", entity.Id, "updated", $"Sucursal actualizada: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -401,14 +437,15 @@ public sealed class ToggleBranchStatusCommandHandler(IAppDbContext db, IUserAcce
 {
     public async Task<AppResult> Handle(ToggleBranchStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Branches, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Sucursal no encontrada.");
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Branch", entity.Id, request.IsActive ? "activated" : "deactivated", $"Sucursal {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Branch", entity.Id, request.IsActive ? "activated" : "deactivated", $"Sucursal {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -445,9 +482,10 @@ public sealed class GetWarehousesQueryHandler(IAppDbContext db, IUserAccessServi
 {
     public async Task<AppResult<PagedResult<WarehouseListItemDto>>> Handle(GetWarehousesQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<PagedResult<WarehouseListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
-        var query = db.Warehouses.AsNoTracking().Where(x => x.AccountId == accountId.Value);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Warehouses, ct);
+        if (!scope.Success) return AppResult<PagedResult<WarehouseListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var query = db.Warehouses.AsNoTracking().Where(x => x.AccountId == accountId);
         if (request.BranchId.HasValue) query = query.Where(x => x.BranchId == request.BranchId.Value);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -472,10 +510,11 @@ public sealed class GetWarehouseByIdQueryHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult<WarehouseDetailDto>> Handle(GetWarehouseByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<WarehouseDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Warehouses, ct);
+        if (!scope.Success) return AppResult<WarehouseDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var item = await db.Warehouses.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new WarehouseDetailDto(x.Id, x.BranchId, x.Name, x.IsMain, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
         return item is null ? AppResult<WarehouseDetailDto>.Fail("not_found", "Depósito no encontrado.") : AppResult<WarehouseDetailDto>.Ok(item);
@@ -487,16 +526,17 @@ public sealed class CreateWarehouseCommandHandler(IAppDbContext db, IUserAccessS
 {
     public async Task<AppResult<int>> Handle(CreateWarehouseCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
-        var branch = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.BranchId, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Warehouses, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var branch = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.BranchId, ct);
         if (branch is null) return AppResult<int>.Fail("branch_not_found", "Sucursal no encontrada.");
-        if (await db.Warehouses.AnyAsync(x => x.AccountId == accountId.Value && x.BranchId == request.BranchId && x.Name == request.Name.Trim(), ct))
+        if (await db.Warehouses.AnyAsync(x => x.AccountId == accountId && x.BranchId == request.BranchId && x.Name == request.Name.Trim(), ct))
             return AppResult<int>.Fail("duplicate_name", "Ya existe un depósito con ese nombre en la sucursal.");
 
         if (request.IsMain)
         {
-            var currentMain = await db.Warehouses.Where(x => x.AccountId == accountId.Value && x.BranchId == request.BranchId && x.IsMain).ToListAsync(ct);
+            var currentMain = await db.Warehouses.Where(x => x.AccountId == accountId && x.BranchId == request.BranchId && x.IsMain).ToListAsync(ct);
             foreach (var item in currentMain)
             {
                 item.IsMain = false;
@@ -506,7 +546,7 @@ public sealed class CreateWarehouseCommandHandler(IAppDbContext db, IUserAccessS
 
         var entity = new Warehouse
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             BranchId = request.BranchId,
             Name = request.Name.Trim(),
             IsMain = request.IsMain,
@@ -515,7 +555,7 @@ public sealed class CreateWarehouseCommandHandler(IAppDbContext db, IUserAccessS
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.Warehouses.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Warehouse", entity.Id, "created", $"Depósito creado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Warehouse", entity.Id, "created", $"Depósito creado: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -525,18 +565,19 @@ public sealed class UpdateWarehouseCommandHandler(IAppDbContext db, IUserAccessS
 {
     public async Task<AppResult> Handle(UpdateWarehouseCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Warehouses.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Warehouses, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Warehouses.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Depósito no encontrado.");
-        var branch = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.BranchId, ct);
+        var branch = await db.Branches.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.BranchId, ct);
         if (branch is null) return AppResult.Fail("branch_not_found", "Sucursal no encontrada.");
-        if (await db.Warehouses.AnyAsync(x => x.AccountId == accountId.Value && x.BranchId == request.BranchId && x.Name == request.Name.Trim() && x.Id != request.Id, ct))
+        if (await db.Warehouses.AnyAsync(x => x.AccountId == accountId && x.BranchId == request.BranchId && x.Name == request.Name.Trim() && x.Id != request.Id, ct))
             return AppResult.Fail("duplicate_name", "Ya existe otro depósito con ese nombre en la sucursal.");
 
         if (request.IsMain)
         {
-            var currentMain = await db.Warehouses.Where(x => x.AccountId == accountId.Value && x.BranchId == request.BranchId && x.IsMain && x.Id != request.Id).ToListAsync(ct);
+            var currentMain = await db.Warehouses.Where(x => x.AccountId == accountId && x.BranchId == request.BranchId && x.IsMain && x.Id != request.Id).ToListAsync(ct);
             foreach (var item in currentMain)
             {
                 item.IsMain = false;
@@ -550,7 +591,7 @@ public sealed class UpdateWarehouseCommandHandler(IAppDbContext db, IUserAccessS
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Warehouse", entity.Id, "updated", $"Depósito actualizado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Warehouse", entity.Id, "updated", $"Depósito actualizado: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -560,15 +601,16 @@ public sealed class ToggleWarehouseStatusCommandHandler(IAppDbContext db, IUserA
 {
     public async Task<AppResult> Handle(ToggleWarehouseStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Warehouses.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Warehouses, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Warehouses.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Depósito no encontrado.");
         entity.IsActive = request.IsActive;
         if (!request.IsActive) entity.IsMain = false;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Warehouse", entity.Id, request.IsActive ? "activated" : "deactivated", $"Depósito {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Warehouse", entity.Id, request.IsActive ? "activated" : "deactivated", $"Depósito {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -603,9 +645,10 @@ public sealed class GetCategoriesQueryHandler(IAppDbContext db, IUserAccessServi
 {
     public async Task<AppResult<PagedResult<CategoryListItemDto>>> Handle(GetCategoriesQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<PagedResult<CategoryListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
-        var query = db.ProductCategories.AsNoTracking().Where(x => x.AccountId == accountId.Value);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Categories, ct);
+        if (!scope.Success) return AppResult<PagedResult<CategoryListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var query = db.ProductCategories.AsNoTracking().Where(x => x.AccountId == accountId);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
@@ -629,10 +672,11 @@ public sealed class GetCategoryTreeQueryHandler(IAppDbContext db, IUserAccessSer
 {
     public async Task<AppResult<List<CategoryTreeItemDto>>> Handle(GetCategoryTreeQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<List<CategoryTreeItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Categories, ct);
+        if (!scope.Success) return AppResult<List<CategoryTreeItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var categories = await db.ProductCategories.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && (!request.IsActive.HasValue || x.IsActive == request.IsActive.Value))
+            .Where(x => x.AccountId == accountId && (!request.IsActive.HasValue || x.IsActive == request.IsActive.Value))
             .OrderBy(x => x.Name)
             .ToListAsync(ct);
 
@@ -650,10 +694,11 @@ public sealed class GetCategoryByIdQueryHandler(IAppDbContext db, IUserAccessSer
 {
     public async Task<AppResult<CategoryDetailDto>> Handle(GetCategoryByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<CategoryDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Categories, ct);
+        if (!scope.Success) return AppResult<CategoryDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var item = await db.ProductCategories.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new CategoryDetailDto(x.Id, x.Name, x.ParentCategoryId, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
         return item is null ? AppResult<CategoryDetailDto>.Fail("not_found", "Categoría no encontrada.") : AppResult<CategoryDetailDto>.Ok(item);
@@ -665,15 +710,16 @@ public sealed class CreateCategoryCommandHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult<int>> Handle(CreateCategoryCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
-        if (request.ParentCategoryId.HasValue && !await db.ProductCategories.AnyAsync(x => x.AccountId == accountId.Value && x.Id == request.ParentCategoryId.Value, ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Categories, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (request.ParentCategoryId.HasValue && !await db.ProductCategories.AnyAsync(x => x.AccountId == accountId && x.Id == request.ParentCategoryId.Value, ct))
             return AppResult<int>.Fail("parent_not_found", "La categoría padre no existe.");
-        if (await db.ProductCategories.AnyAsync(x => x.AccountId == accountId.Value && x.ParentCategoryId == request.ParentCategoryId && x.Name == request.Name.Trim(), ct))
+        if (await db.ProductCategories.AnyAsync(x => x.AccountId == accountId && x.ParentCategoryId == request.ParentCategoryId && x.Name == request.Name.Trim(), ct))
             return AppResult<int>.Fail("duplicate_name", "Ya existe una categoría con ese nombre en el mismo nivel.");
         var entity = new ProductCategory
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             Name = request.Name.Trim(),
             ParentCategoryId = request.ParentCategoryId,
             IsActive = request.IsActive
@@ -681,7 +727,7 @@ public sealed class CreateCategoryCommandHandler(IAppDbContext db, IUserAccessSe
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.ProductCategories.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "ProductCategory", entity.Id, "created", $"Categoría creada: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "ProductCategory", entity.Id, "created", $"Categoría creada: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -691,21 +737,24 @@ public sealed class UpdateCategoryCommandHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult> Handle(UpdateCategoryCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Categories, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         if (request.ParentCategoryId == request.Id) return AppResult.Fail("invalid_parent", "Una categoría no puede ser padre de sí misma.");
-        var entity = await db.ProductCategories.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var entity = await db.ProductCategories.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Categoría no encontrada.");
-        if (request.ParentCategoryId.HasValue && !await db.ProductCategories.AnyAsync(x => x.AccountId == accountId.Value && x.Id == request.ParentCategoryId.Value, ct))
+        if (request.ParentCategoryId.HasValue && !await db.ProductCategories.AnyAsync(x => x.AccountId == accountId && x.Id == request.ParentCategoryId.Value, ct))
             return AppResult.Fail("parent_not_found", "La categoría padre no existe.");
-        if (await db.ProductCategories.AnyAsync(x => x.AccountId == accountId.Value && x.ParentCategoryId == request.ParentCategoryId && x.Name == request.Name.Trim() && x.Id != request.Id, ct))
+        if (await CommerceFeatureHelpers.CreatesCategoryCycleAsync(db, accountId, request.Id, request.ParentCategoryId, ct))
+            return AppResult.Fail("invalid_parent", "La categoría padre seleccionada genera una jerarquía circular.");
+        if (await db.ProductCategories.AnyAsync(x => x.AccountId == accountId && x.ParentCategoryId == request.ParentCategoryId && x.Name == request.Name.Trim() && x.Id != request.Id, ct))
             return AppResult.Fail("duplicate_name", "Ya existe otra categoría con ese nombre en el mismo nivel.");
         entity.Name = request.Name.Trim();
         entity.ParentCategoryId = request.ParentCategoryId;
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "ProductCategory", entity.Id, "updated", $"Categoría actualizada: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "ProductCategory", entity.Id, "updated", $"Categoría actualizada: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -715,14 +764,15 @@ public sealed class ToggleCategoryStatusCommandHandler(IAppDbContext db, IUserAc
 {
     public async Task<AppResult> Handle(ToggleCategoryStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.ProductCategories.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Categories, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.ProductCategories.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Categoría no encontrada.");
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "ProductCategory", entity.Id, request.IsActive ? "activated" : "deactivated", $"Categoría {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "ProductCategory", entity.Id, request.IsActive ? "activated" : "deactivated", $"Categoría {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -771,9 +821,10 @@ public sealed class GetProductsQueryHandler(IAppDbContext db, IUserAccessService
 {
     public async Task<AppResult<PagedResult<ProductListItemDto>>> Handle(GetProductsQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<PagedResult<ProductListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
-        var query = db.Products.AsNoTracking().Where(x => x.AccountId == accountId.Value);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<PagedResult<ProductListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var query = db.Products.AsNoTracking().Where(x => x.AccountId == accountId);
         if (request.CategoryId.HasValue) query = query.Where(x => x.CategoryId == request.CategoryId.Value);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -798,10 +849,11 @@ public sealed class GetProductByIdQueryHandler(IAppDbContext db, IUserAccessServ
 {
     public async Task<AppResult<ProductDetailDto>> Handle(GetProductByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<ProductDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<ProductDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var item = await db.Products.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new ProductDetailDto(x.Id, x.Name, x.InternalCode, x.Barcode, x.Description, x.CategoryId, x.Brand, x.UnitOfMeasure, x.Cost, x.SalePrice, x.MinimumStock, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
         return item is null ? AppResult<ProductDetailDto>.Fail("not_found", "Producto no encontrado.") : AppResult<ProductDetailDto>.Ok(item);
@@ -813,10 +865,11 @@ public sealed class GetProductSeedDataQueryHandler(IAppDbContext db, IUserAccess
 {
     public async Task<AppResult<ProductSeedDataDto>> Handle(GetProductSeedDataQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<ProductSeedDataDto>.Fail("account_required", "No se encontró una cuenta activa.");
-        var categories = await db.ProductCategories.AsNoTracking().Where(x => x.AccountId == accountId.Value && x.IsActive).OrderBy(x => x.Name).Select(x => new LookupDto(x.Id, x.Name)).ToListAsync(ct);
-        var brands = await db.Products.AsNoTracking().Where(x => x.AccountId == accountId.Value && x.Brand != string.Empty).Select(x => x.Brand).Distinct().OrderBy(x => x).ToListAsync(ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<ProductSeedDataDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var categories = await db.ProductCategories.AsNoTracking().Where(x => x.AccountId == accountId && x.IsActive).OrderBy(x => x.Name).Select(x => new LookupDto(x.Id, x.Name)).ToListAsync(ct);
+        var brands = await db.Products.AsNoTracking().Where(x => x.AccountId == accountId && x.Brand != string.Empty).Select(x => x.Brand).Distinct().OrderBy(x => x).ToListAsync(ct);
         return AppResult<ProductSeedDataDto>.Ok(new ProductSeedDataDto(categories, brands, Enum.GetValues<UnitOfMeasure>()));
     }
 }
@@ -826,15 +879,16 @@ public sealed class CreateProductCommandHandler(IAppDbContext db, IUserAccessSer
 {
     public async Task<AppResult<int>> Handle(CreateProductCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
-        if (!await db.ProductCategories.AnyAsync(x => x.AccountId == accountId.Value && x.Id == request.CategoryId, ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (!await db.ProductCategories.AnyAsync(x => x.AccountId == accountId && x.Id == request.CategoryId, ct))
             return AppResult<int>.Fail("category_not_found", "La categoría no existe.");
-        if (await db.Products.AnyAsync(x => x.AccountId == accountId.Value && x.InternalCode == request.InternalCode.Trim(), ct))
+        if (await db.Products.AnyAsync(x => x.AccountId == accountId && x.InternalCode == request.InternalCode.Trim(), ct))
             return AppResult<int>.Fail("duplicate_code", "Ya existe un producto con ese código interno.");
         var entity = new Product
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             Name = request.Name.Trim(),
             InternalCode = request.InternalCode.Trim(),
             Barcode = string.IsNullOrWhiteSpace(request.Barcode) ? null : request.Barcode.Trim(),
@@ -850,7 +904,7 @@ public sealed class CreateProductCommandHandler(IAppDbContext db, IUserAccessSer
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.Products.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Product", entity.Id, "created", $"Producto creado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Product", entity.Id, "created", $"Producto creado: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -860,13 +914,14 @@ public sealed class UpdateProductCommandHandler(IAppDbContext db, IUserAccessSer
 {
     public async Task<AppResult> Handle(UpdateProductCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        if (!await db.ProductCategories.AnyAsync(x => x.AccountId == accountId.Value && x.Id == request.CategoryId, ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (!await db.ProductCategories.AnyAsync(x => x.AccountId == accountId && x.Id == request.CategoryId, ct))
             return AppResult.Fail("category_not_found", "La categoría no existe.");
-        var entity = await db.Products.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var entity = await db.Products.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Producto no encontrado.");
-        if (await db.Products.AnyAsync(x => x.AccountId == accountId.Value && x.InternalCode == request.InternalCode.Trim() && x.Id != request.Id, ct))
+        if (await db.Products.AnyAsync(x => x.AccountId == accountId && x.InternalCode == request.InternalCode.Trim() && x.Id != request.Id, ct))
             return AppResult.Fail("duplicate_code", "Ya existe otro producto con ese código interno.");
         entity.Name = request.Name.Trim();
         entity.InternalCode = request.InternalCode.Trim();
@@ -881,7 +936,7 @@ public sealed class UpdateProductCommandHandler(IAppDbContext db, IUserAccessSer
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Product", entity.Id, "updated", $"Producto actualizado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Product", entity.Id, "updated", $"Producto actualizado: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -891,14 +946,15 @@ public sealed class ToggleProductStatusCommandHandler(IAppDbContext db, IUserAcc
 {
     public async Task<AppResult> Handle(ToggleProductStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Products.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Products.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Producto no encontrado.");
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Product", entity.Id, request.IsActive ? "activated" : "deactivated", $"Producto {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Product", entity.Id, request.IsActive ? "activated" : "deactivated", $"Producto {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -935,10 +991,11 @@ public sealed class GetProductVariantsQueryHandler(IAppDbContext db, IUserAccess
 {
     public async Task<AppResult<List<ProductVariantListItemDto>>> Handle(GetProductVariantsQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<List<ProductVariantListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<List<ProductVariantListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var items = await db.ProductVariants.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.ProductId == request.ProductId)
+            .Where(x => x.AccountId == accountId && x.ProductId == request.ProductId)
             .OrderBy(x => x.Name)
             .Select(x => new ProductVariantListItemDto(x.Id, x.ProductId, x.Product.Name, x.Name, x.InternalCode, x.Barcode, x.AttributesSummary, x.Cost, x.SalePrice, x.IsActive))
             .ToListAsync(ct);
@@ -951,10 +1008,11 @@ public sealed class GetProductVariantByIdQueryHandler(IAppDbContext db, IUserAcc
 {
     public async Task<AppResult<ProductVariantDetailDto>> Handle(GetProductVariantByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<ProductVariantDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<ProductVariantDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var item = await db.ProductVariants.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new ProductVariantDetailDto(x.Id, x.ProductId, x.Name, x.InternalCode, x.Barcode, x.AttributesSummary, x.Cost, x.SalePrice, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
         return item is null ? AppResult<ProductVariantDetailDto>.Fail("not_found", "Variante no encontrada.") : AppResult<ProductVariantDetailDto>.Ok(item);
@@ -966,15 +1024,16 @@ public sealed class CreateProductVariantCommandHandler(IAppDbContext db, IUserAc
 {
     public async Task<AppResult<int>> Handle(CreateProductVariantCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
-        if (!await db.Products.AnyAsync(x => x.AccountId == accountId.Value && x.Id == request.ProductId, ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (!await db.Products.AnyAsync(x => x.AccountId == accountId && x.Id == request.ProductId, ct))
             return AppResult<int>.Fail("product_not_found", "El producto no existe.");
-        if (await db.ProductVariants.AnyAsync(x => x.AccountId == accountId.Value && x.InternalCode == request.InternalCode.Trim(), ct))
+        if (await db.ProductVariants.AnyAsync(x => x.AccountId == accountId && x.InternalCode == request.InternalCode.Trim(), ct))
             return AppResult<int>.Fail("duplicate_code", "Ya existe una variante con ese código interno.");
         var entity = new ProductVariant
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             ProductId = request.ProductId,
             Name = request.Name.Trim(),
             InternalCode = request.InternalCode.Trim(),
@@ -987,7 +1046,7 @@ public sealed class CreateProductVariantCommandHandler(IAppDbContext db, IUserAc
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.ProductVariants.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "ProductVariant", entity.Id, "created", $"Variante creada: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "ProductVariant", entity.Id, "created", $"Variante creada: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -997,13 +1056,14 @@ public sealed class UpdateProductVariantCommandHandler(IAppDbContext db, IUserAc
 {
     public async Task<AppResult> Handle(UpdateProductVariantCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        if (!await db.Products.AnyAsync(x => x.AccountId == accountId.Value && x.Id == request.ProductId, ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (!await db.Products.AnyAsync(x => x.AccountId == accountId && x.Id == request.ProductId, ct))
             return AppResult.Fail("product_not_found", "El producto no existe.");
-        var entity = await db.ProductVariants.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var entity = await db.ProductVariants.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Variante no encontrada.");
-        if (await db.ProductVariants.AnyAsync(x => x.AccountId == accountId.Value && x.InternalCode == request.InternalCode.Trim() && x.Id != request.Id, ct))
+        if (await db.ProductVariants.AnyAsync(x => x.AccountId == accountId && x.InternalCode == request.InternalCode.Trim() && x.Id != request.Id, ct))
             return AppResult.Fail("duplicate_code", "Ya existe otra variante con ese código interno.");
         entity.ProductId = request.ProductId;
         entity.Name = request.Name.Trim();
@@ -1015,7 +1075,7 @@ public sealed class UpdateProductVariantCommandHandler(IAppDbContext db, IUserAc
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "ProductVariant", entity.Id, "updated", $"Variante actualizada: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "ProductVariant", entity.Id, "updated", $"Variante actualizada: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -1025,14 +1085,15 @@ public sealed class ToggleProductVariantStatusCommandHandler(IAppDbContext db, I
 {
     public async Task<AppResult> Handle(ToggleProductVariantStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.ProductVariants.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.ProductVariants.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Variante no encontrada.");
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "ProductVariant", entity.Id, request.IsActive ? "activated" : "deactivated", $"Variante {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "ProductVariant", entity.Id, request.IsActive ? "activated" : "deactivated", $"Variante {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -1073,9 +1134,10 @@ public sealed class GetCustomersQueryHandler(IAppDbContext db, IUserAccessServic
 {
     public async Task<AppResult<PagedResult<CustomerListItemDto>>> Handle(GetCustomersQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<PagedResult<CustomerListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
-        var query = db.Customers.AsNoTracking().Where(x => x.AccountId == accountId.Value);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
+        if (!scope.Success) return AppResult<PagedResult<CustomerListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var query = db.Customers.AsNoTracking().Where(x => x.AccountId == accountId);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
@@ -1099,10 +1161,11 @@ public sealed class GetCustomerByIdQueryHandler(IAppDbContext db, IUserAccessSer
 {
     public async Task<AppResult<CustomerDetailDto>> Handle(GetCustomerByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<CustomerDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
+        if (!scope.Success) return AppResult<CustomerDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var item = await db.Customers.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new CustomerDetailDto(x.Id, x.Name, x.DocumentNumber, x.Phone, x.Address, x.City, x.CustomerType, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
         return item is null ? AppResult<CustomerDetailDto>.Fail("not_found", "Cliente no encontrado.") : AppResult<CustomerDetailDto>.Ok(item);
@@ -1114,11 +1177,12 @@ public sealed class CreateCustomerCommandHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult<int>> Handle(CreateCustomerCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var entity = new Customer
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             Name = request.Name.Trim(),
             DocumentNumber = string.IsNullOrWhiteSpace(request.DocumentNumber) ? null : request.DocumentNumber.Trim(),
             Phone = request.Phone.Trim(),
@@ -1130,7 +1194,7 @@ public sealed class CreateCustomerCommandHandler(IAppDbContext db, IUserAccessSe
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.Customers.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Customer", entity.Id, "created", $"Cliente creado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Customer", entity.Id, "created", $"Cliente creado: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -1140,9 +1204,10 @@ public sealed class UpdateCustomerCommandHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult> Handle(UpdateCustomerCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Customers.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Customers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Cliente no encontrado.");
         entity.Name = request.Name.Trim();
         entity.DocumentNumber = string.IsNullOrWhiteSpace(request.DocumentNumber) ? null : request.DocumentNumber.Trim();
@@ -1153,7 +1218,7 @@ public sealed class UpdateCustomerCommandHandler(IAppDbContext db, IUserAccessSe
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Customer", entity.Id, "updated", $"Cliente actualizado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Customer", entity.Id, "updated", $"Cliente actualizado: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -1163,14 +1228,15 @@ public sealed class ToggleCustomerStatusCommandHandler(IAppDbContext db, IUserAc
 {
     public async Task<AppResult> Handle(ToggleCustomerStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Customers.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Customers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Cliente no encontrado.");
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Customer", entity.Id, request.IsActive ? "activated" : "deactivated", $"Cliente {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Customer", entity.Id, request.IsActive ? "activated" : "deactivated", $"Cliente {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -1209,9 +1275,10 @@ public sealed class GetSuppliersQueryHandler(IAppDbContext db, IUserAccessServic
 {
     public async Task<AppResult<PagedResult<SupplierListItemDto>>> Handle(GetSuppliersQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<PagedResult<SupplierListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
-        var query = db.Suppliers.AsNoTracking().Where(x => x.AccountId == accountId.Value);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
+        if (!scope.Success) return AppResult<PagedResult<SupplierListItemDto>>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var query = db.Suppliers.AsNoTracking().Where(x => x.AccountId == accountId);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
@@ -1235,10 +1302,11 @@ public sealed class GetSupplierByIdQueryHandler(IAppDbContext db, IUserAccessSer
 {
     public async Task<AppResult<SupplierDetailDto>> Handle(GetSupplierByIdQuery request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<SupplierDetailDto>.Fail("account_required", "No se encontró una cuenta activa.");
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
+        if (!scope.Success) return AppResult<SupplierDetailDto>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
         var item = await db.Suppliers.AsNoTracking()
-            .Where(x => x.AccountId == accountId.Value && x.Id == request.Id)
+            .Where(x => x.AccountId == accountId && x.Id == request.Id)
             .Select(x => new SupplierDetailDto(x.Id, x.Name, x.TaxId, x.Phone, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
             .FirstOrDefaultAsync(ct);
         return item is null ? AppResult<SupplierDetailDto>.Fail("not_found", "Proveedor no encontrado.") : AppResult<SupplierDetailDto>.Ok(item);
@@ -1250,13 +1318,14 @@ public sealed class CreateSupplierCommandHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult<int>> Handle(CreateSupplierCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult<int>.Fail("account_required", "No se encontró una cuenta activa.");
-        if (await db.Suppliers.AnyAsync(x => x.AccountId == accountId.Value && x.TaxId == request.TaxId.Trim(), ct))
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
+        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        if (await db.Suppliers.AnyAsync(x => x.AccountId == accountId && x.TaxId == request.TaxId.Trim(), ct))
             return AppResult<int>.Fail("duplicate_taxid", "Ya existe un proveedor con ese CUIT/DNI.");
         var entity = new Supplier
         {
-            AccountId = accountId.Value,
+            AccountId = accountId,
             Name = request.Name.Trim(),
             TaxId = request.TaxId.Trim(),
             Phone = request.Phone.Trim(),
@@ -1265,7 +1334,7 @@ public sealed class CreateSupplierCommandHandler(IAppDbContext db, IUserAccessSe
         CommerceFeatureHelpers.TouchCreate(entity, current);
         db.Suppliers.Add(entity);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Supplier", entity.Id, "created", $"Proveedor creado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Supplier", entity.Id, "created", $"Proveedor creado: {entity.Name}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -1275,11 +1344,12 @@ public sealed class UpdateSupplierCommandHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult> Handle(UpdateSupplierCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Suppliers.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Suppliers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Proveedor no encontrado.");
-        if (await db.Suppliers.AnyAsync(x => x.AccountId == accountId.Value && x.TaxId == request.TaxId.Trim() && x.Id != request.Id, ct))
+        if (await db.Suppliers.AnyAsync(x => x.AccountId == accountId && x.TaxId == request.TaxId.Trim() && x.Id != request.Id, ct))
             return AppResult.Fail("duplicate_taxid", "Ya existe otro proveedor con ese CUIT/DNI.");
         entity.Name = request.Name.Trim();
         entity.TaxId = request.TaxId.Trim();
@@ -1287,7 +1357,7 @@ public sealed class UpdateSupplierCommandHandler(IAppDbContext db, IUserAccessSe
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Supplier", entity.Id, "updated", $"Proveedor actualizado: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Supplier", entity.Id, "updated", $"Proveedor actualizado: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }
@@ -1297,14 +1367,15 @@ public sealed class ToggleSupplierStatusCommandHandler(IAppDbContext db, IUserAc
 {
     public async Task<AppResult> Handle(ToggleSupplierStatusCommand request, CancellationToken ct)
     {
-        var accountId = await access.GetCurrentAccountIdAsync(ct);
-        if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
-        var entity = await db.Suppliers.FirstOrDefaultAsync(x => x.AccountId == accountId.Value && x.Id == request.Id, ct);
+        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
+        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
+        var accountId = scope.AccountId;
+        var entity = await db.Suppliers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
         if (entity is null) return AppResult.Fail("not_found", "Proveedor no encontrado.");
         entity.IsActive = request.IsActive;
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId.Value, null, "Supplier", entity.Id, request.IsActive ? "activated" : "deactivated", $"Proveedor {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
+        await audit.WriteAsync(accountId, null, "Supplier", entity.Id, request.IsActive ? "activated" : "deactivated", $"Proveedor {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }

@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace GestAI.Infrastructure.Persistence.Migrations
 {
-    [Migration("20260320130000_Release2InventoryAndPricing")]
-    public partial class Release2InventoryAndPricing : Migration
+    [Migration("20260320130000_InventoryAndPricing")]
+    public partial class InventoryAndPricing : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

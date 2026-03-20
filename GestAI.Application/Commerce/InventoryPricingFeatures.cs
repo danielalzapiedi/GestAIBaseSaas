@@ -27,7 +27,7 @@ public sealed record ApplyPriceListAdjustmentCommand(int PriceListId, BulkPriceA
 public sealed record PreviewProductImportCommand(string CsvContent, bool UpsertExisting) : IRequest<AppResult<ProductImportPreviewDto>>;
 public sealed record ApplyProductImportCommand(string CsvContent, bool UpsertExisting) : IRequest<AppResult<ProductImportResultDto>>;
 
-file static class CommerceRelease2Helpers
+file static class CommerceInventoryPricingHelpers
 {
     public static async Task<(bool Success, int AccountId, string ErrorCode, string Message)> RequireProductsAsync(IUserAccessService access, CancellationToken ct)
         => await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
@@ -268,7 +268,7 @@ public sealed class GetInventoryOverviewQueryHandler(IAppDbContext db, IUserAcce
 {
     public async Task<AppResult<InventoryOverviewDto>> Handle(GetInventoryOverviewQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<InventoryOverviewDto>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -315,7 +315,7 @@ public sealed class GetInventoryOverviewQueryHandler(IAppDbContext db, IUserAcce
                 x.ProductId,
                 x.ProductVariantId,
                 x.ProductName,
-                CommerceRelease2Helpers.BuildSkuName(x.ProductName, x.VariantName),
+                CommerceInventoryPricingHelpers.BuildSkuName(x.ProductName, x.VariantName),
                 x.InternalCode,
                 x.WarehouseName,
                 x.WarehouseId,
@@ -342,7 +342,7 @@ public sealed class GetInventorySeedDataQueryHandler(IAppDbContext db, IUserAcce
 {
     public async Task<AppResult<InventorySeedDataDto>> Handle(GetInventorySeedDataQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<InventorySeedDataDto>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -371,7 +371,7 @@ public sealed class GetStockMovementsQueryHandler(IAppDbContext db, IUserAccessS
 {
     public async Task<AppResult<List<StockMovementListItemDto>>> Handle(GetStockMovementsQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<List<StockMovementListItemDto>>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -409,7 +409,7 @@ public sealed class GetStockMovementsQueryHandler(IAppDbContext db, IUserAccessS
                 x.Id,
                 x.ProductId,
                 x.ProductVariantId,
-                CommerceRelease2Helpers.BuildSkuName(x.ProductName, x.VariantName),
+                CommerceInventoryPricingHelpers.BuildSkuName(x.ProductName, x.VariantName),
                 x.InternalCode,
                 x.WarehouseName,
                 x.WarehouseId,
@@ -446,7 +446,7 @@ public sealed class RecordStockMovementCommandHandler(IAppDbContext db, IUserAcc
 {
     public async Task<AppResult<int>> Handle(RecordStockMovementCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -477,7 +477,7 @@ public sealed class RecordStockMovementCommandHandler(IAppDbContext db, IUserAcc
             var movementId = 0;
             var referenceGroup = request.MovementType == StockMovementType.TransferOut ? Guid.NewGuid().ToString("N") : null;
 
-            var sourceStock = await CommerceRelease2Helpers.GetOrCreateStockAsync(db, accountId, request.ProductId, request.ProductVariantId, request.WarehouseId, current, ct);
+            var sourceStock = await CommerceInventoryPricingHelpers.GetOrCreateStockAsync(db, accountId, request.ProductId, request.ProductVariantId, request.WarehouseId, current, ct);
             var occurredAt = request.OccurredAtUtc?.ToUniversalTime() ?? DateTime.UtcNow;
             var delta = request.MovementType switch
             {
@@ -511,7 +511,7 @@ public sealed class RecordStockMovementCommandHandler(IAppDbContext db, IUserAcc
 
             if (request.MovementType == StockMovementType.TransferOut)
             {
-                var targetStock = await CommerceRelease2Helpers.GetOrCreateStockAsync(db, accountId, request.ProductId, request.ProductVariantId, counterpartWarehouse!.Id, current, ct);
+                var targetStock = await CommerceInventoryPricingHelpers.GetOrCreateStockAsync(db, accountId, request.ProductId, request.ProductVariantId, counterpartWarehouse!.Id, current, ct);
                 targetStock.QuantityOnHand += request.Quantity;
                 targetStock.LastMovementAtUtc = occurredAt;
                 CommerceFeatureHelpers.TouchUpdate(targetStock, current);
@@ -538,7 +538,7 @@ public sealed class RecordStockMovementCommandHandler(IAppDbContext db, IUserAcc
             await tx.CommitAsync(ct);
             movementId = movement.Id;
 
-            await audit.WriteAsync(accountId, null, "StockMovement", movementId, "created", $"Movimiento {request.MovementType}: {CommerceRelease2Helpers.BuildSkuName(product.Name, variant?.Name)}", ct);
+            await audit.WriteAsync(accountId, null, "StockMovement", movementId, "created", $"Movimiento {request.MovementType}: {CommerceInventoryPricingHelpers.BuildSkuName(product.Name, variant?.Name)}", ct);
             return AppResult<int>.Ok(movementId);
         }
         catch
@@ -554,7 +554,7 @@ public sealed class GetPriceListSeedDataQueryHandler(IAppDbContext db, IUserAcce
 {
     public async Task<AppResult<PriceListSeedDataDto>> Handle(GetPriceListSeedDataQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<PriceListSeedDataDto>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -575,7 +575,7 @@ public sealed class GetPriceListsQueryHandler(IAppDbContext db, IUserAccessServi
 {
     public async Task<AppResult<PagedResult<PriceListListItemDto>>> Handle(GetPriceListsQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<PagedResult<PriceListListItemDto>>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -605,7 +605,7 @@ public sealed class GetPriceListByIdQueryHandler(IAppDbContext db, IUserAccessSe
 {
     public async Task<AppResult<PriceListDetailDto>> Handle(GetPriceListByIdQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<PriceListDetailDto>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -622,7 +622,7 @@ public sealed class GetPriceListItemsQueryHandler(IAppDbContext db, IUserAccessS
 {
     public async Task<AppResult<List<PriceListItemDto>>> Handle(GetPriceListItemsQuery request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<List<PriceListItemDto>>.Fail(scope.ErrorCode, scope.Message);
 
         var accountId = scope.AccountId;
@@ -663,7 +663,7 @@ public sealed class GetPriceListItemsQueryHandler(IAppDbContext db, IUserAccessS
                 x.PriceListId,
                 x.ProductId,
                 x.ProductVariantId,
-                CommerceRelease2Helpers.BuildSkuName(x.ProductName, x.VariantName),
+                CommerceInventoryPricingHelpers.BuildSkuName(x.ProductName, x.VariantName),
                 x.InternalCode,
                 priceList.BaseMode switch
                 {
@@ -703,7 +703,7 @@ public sealed class CreatePriceListCommandHandler(IAppDbContext db, IUserAccessS
 {
     public async Task<AppResult<int>> Handle(CreatePriceListCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
         var accountId = scope.AccountId;
         if (await db.PriceLists.AnyAsync(x => x.AccountId == accountId && x.Name == request.Name.Trim(), ct))
@@ -730,7 +730,7 @@ public sealed class UpdatePriceListCommandHandler(IAppDbContext db, IUserAccessS
 {
     public async Task<AppResult> Handle(UpdatePriceListCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
         var accountId = scope.AccountId;
         var entity = await db.PriceLists.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
@@ -764,11 +764,11 @@ public sealed class SetPriceListItemCommandHandler(IAppDbContext db, IUserAccess
 {
     public async Task<AppResult<int>> Handle(SetPriceListItemCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
         var accountId = scope.AccountId;
 
-        var priceListResult = await CommerceRelease2Helpers.GetPriceListAsync(db, accountId, request.PriceListId, ct);
+        var priceListResult = await CommerceInventoryPricingHelpers.GetPriceListAsync(db, accountId, request.PriceListId, ct);
         if (!priceListResult.Success) return AppResult<int>.Fail(priceListResult.ErrorCode, priceListResult.Message);
         var priceList = priceListResult.PriceList;
 
@@ -811,7 +811,7 @@ public sealed class SetPriceListItemCommandHandler(IAppDbContext db, IUserAccess
         }
 
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "PriceListItem", entity.Id, isNew ? "created" : "updated", $"Precio actualizado para {CommerceRelease2Helpers.BuildSkuName(product.Name, variant?.Name)}", ct);
+        await audit.WriteAsync(accountId, null, "PriceListItem", entity.Id, isNew ? "created" : "updated", $"Precio actualizado para {CommerceInventoryPricingHelpers.BuildSkuName(product.Name, variant?.Name)}", ct);
         return AppResult<int>.Ok(entity.Id);
     }
 }
@@ -830,10 +830,10 @@ public sealed class ApplyPriceListAdjustmentCommandHandler(IAppDbContext db, IUs
 {
     public async Task<AppResult<BulkPriceUpdateResultDto>> Handle(ApplyPriceListAdjustmentCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<BulkPriceUpdateResultDto>.Fail(scope.ErrorCode, scope.Message);
         var accountId = scope.AccountId;
-        var priceListResult = await CommerceRelease2Helpers.GetPriceListAsync(db, accountId, request.PriceListId, ct);
+        var priceListResult = await CommerceInventoryPricingHelpers.GetPriceListAsync(db, accountId, request.PriceListId, ct);
         if (!priceListResult.Success) return AppResult<BulkPriceUpdateResultDto>.Fail(priceListResult.ErrorCode, priceListResult.Message);
         var priceList = priceListResult.PriceList;
 
@@ -850,7 +850,7 @@ public sealed class ApplyPriceListAdjustmentCommandHandler(IAppDbContext db, IUs
         {
             if (priceList.TargetType == PriceListTargetType.Product)
             {
-                var basePrice = CommerceRelease2Helpers.ResolveBasePrice(priceList.BaseMode, product, null);
+                var basePrice = CommerceInventoryPricingHelpers.ResolveBasePrice(priceList.BaseMode, product, null);
                 if (priceList.BaseMode == PriceListBaseMode.Manual && basePrice == 0m)
                 {
                     skipped++;
@@ -858,7 +858,7 @@ public sealed class ApplyPriceListAdjustmentCommandHandler(IAppDbContext db, IUs
                 }
 
                 var entity = await db.PriceListItems.FirstOrDefaultAsync(x => x.AccountId == accountId && x.PriceListId == priceList.Id && x.ProductId == product.Id && x.ProductVariantId == null, ct);
-                var newPrice = CommerceRelease2Helpers.ApplyAdjustment(request.AdjustmentType, basePrice, request.Value);
+                var newPrice = CommerceInventoryPricingHelpers.ApplyAdjustment(request.AdjustmentType, basePrice, request.Value);
                 if (entity is null)
                 {
                     entity = new PriceListItem { AccountId = accountId, PriceListId = priceList.Id, ProductId = product.Id, Price = newPrice, IsActive = true };
@@ -878,7 +878,7 @@ public sealed class ApplyPriceListAdjustmentCommandHandler(IAppDbContext db, IUs
             {
                 foreach (var variant in product.Variants.Where(x => request.IncludeInactiveProducts || x.IsActive))
                 {
-                    var basePrice = CommerceRelease2Helpers.ResolveBasePrice(priceList.BaseMode, product, variant);
+                    var basePrice = CommerceInventoryPricingHelpers.ResolveBasePrice(priceList.BaseMode, product, variant);
                     if (priceList.BaseMode == PriceListBaseMode.Manual && basePrice == 0m)
                     {
                         skipped++;
@@ -886,7 +886,7 @@ public sealed class ApplyPriceListAdjustmentCommandHandler(IAppDbContext db, IUs
                     }
 
                     var entity = await db.PriceListItems.FirstOrDefaultAsync(x => x.AccountId == accountId && x.PriceListId == priceList.Id && x.ProductVariantId == variant.Id, ct);
-                    var newPrice = CommerceRelease2Helpers.ApplyAdjustment(request.AdjustmentType, basePrice, request.Value);
+                    var newPrice = CommerceInventoryPricingHelpers.ApplyAdjustment(request.AdjustmentType, basePrice, request.Value);
                     if (entity is null)
                     {
                         entity = new PriceListItem { AccountId = accountId, PriceListId = priceList.Id, ProductId = product.Id, ProductVariantId = variant.Id, Price = newPrice, IsActive = true };
@@ -917,9 +917,9 @@ public sealed class PreviewProductImportCommandHandler(IAppDbContext db, IUserAc
 {
     public async Task<AppResult<ProductImportPreviewDto>> Handle(PreviewProductImportCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<ProductImportPreviewDto>.Fail(scope.ErrorCode, scope.Message);
-        var parsed = await CommerceRelease2Helpers.ParseImportAsync(db, scope.AccountId, request.CsvContent, request.UpsertExisting, ct);
+        var parsed = await CommerceInventoryPricingHelpers.ParseImportAsync(db, scope.AccountId, request.CsvContent, request.UpsertExisting, ct);
         return AppResult<ProductImportPreviewDto>.Ok(parsed.Preview);
     }
 }
@@ -929,10 +929,10 @@ public sealed class ApplyProductImportCommandHandler(IAppDbContext db, IUserAcce
 {
     public async Task<AppResult<ProductImportResultDto>> Handle(ApplyProductImportCommand request, CancellationToken ct)
     {
-        var scope = await CommerceRelease2Helpers.RequireProductsAsync(access, ct);
+        var scope = await CommerceInventoryPricingHelpers.RequireProductsAsync(access, ct);
         if (!scope.Success) return AppResult<ProductImportResultDto>.Fail(scope.ErrorCode, scope.Message);
         var accountId = scope.AccountId;
-        var parsed = await CommerceRelease2Helpers.ParseImportAsync(db, accountId, request.CsvContent, request.UpsertExisting, ct);
+        var parsed = await CommerceInventoryPricingHelpers.ParseImportAsync(db, accountId, request.CsvContent, request.UpsertExisting, ct);
 
         var createdProducts = 0;
         var updatedProducts = 0;

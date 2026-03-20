@@ -12,7 +12,11 @@ public static class DbInitializer
 
     public static async Task MigrateAndSeedAsync(AppDbContext db, UserManager<User> userManager, RoleManager<IdentityRole> roleManager, ILogger logger, SeedOptions options, CancellationToken ct = default)
     {
-        await db.Database.EnsureCreatedAsync(ct);
+        var hasMigrations = (await db.Database.GetMigrationsAsync(ct)).Any();
+        if (hasMigrations)
+            await db.Database.MigrateAsync(ct);
+        else
+            await db.Database.EnsureCreatedAsync(ct);
 
         if (!await roleManager.RoleExistsAsync("SuperAdmin")) await roleManager.CreateAsync(new IdentityRole("SuperAdmin"));
 
@@ -72,6 +76,6 @@ public static class DbInitializer
             await db.SaveChangesAsync(ct);
         }
 
-        logger.LogInformation("DB migrate + seed OK. SuperAdmin: {Email}, AccountId: {AccountId}", options.AdminEmail, account.Id);
+        logger.LogInformation("DB init + seed OK. SuperAdmin: {Email}, AccountId: {AccountId}, UsedMigrations: {UsedMigrations}", options.AdminEmail, account.Id, hasMigrations);
     }
 }

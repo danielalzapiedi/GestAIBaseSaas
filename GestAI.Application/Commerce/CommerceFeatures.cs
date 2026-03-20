@@ -62,6 +62,8 @@ public sealed record ToggleSupplierStatusCommand(int Id, bool IsActive) : IReque
 
 file static class CommerceFeatureHelpers
 {
+    public const int MaxPageSize = 100;
+
     public static async Task<int?> GetRequiredAccountIdAsync(IUserAccessService access, CancellationToken ct)
         => await access.GetCurrentAccountIdAsync(ct);
 
@@ -84,6 +86,12 @@ file static class CommerceFeatureHelpers
 
     public static PagedResult<T> ToPaged<T>(IReadOnlyList<T> items, int total, int page, int pageSize)
         => new(items, total, page, pageSize);
+
+    public static void AddPagingRules<T>(AbstractValidator<T> validator, Func<T, int> pageSelector, Func<T, int> pageSizeSelector)
+    {
+        validator.RuleFor(pageSelector).GreaterThanOrEqualTo(1);
+        validator.RuleFor(pageSizeSelector).InclusiveBetween(1, MaxPageSize);
+    }
 }
 
 public sealed class CreateTenantCommandValidator : AbstractValidator<CreateTenantCommand>
@@ -95,6 +103,14 @@ public sealed class CreateTenantCommandValidator : AbstractValidator<CreateTenan
         RuleFor(x => x.OwnerLastName).NotEmpty().MaximumLength(80);
         RuleFor(x => x.OwnerEmail).NotEmpty().EmailAddress().MaximumLength(180);
         RuleFor(x => x.OwnerPassword).NotEmpty().MinimumLength(8);
+    }
+}
+
+public sealed class GetTenantListQueryValidator : AbstractValidator<GetTenantListQuery>
+{
+    public GetTenantListQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
     }
 }
 
@@ -280,6 +296,14 @@ public sealed class UpdateBranchCommandValidator : AbstractValidator<UpdateBranc
     }
 }
 
+public sealed class GetBranchesQueryValidator : AbstractValidator<GetBranchesQuery>
+{
+    public GetBranchesQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
+    }
+}
+
 public sealed class GetBranchesQueryHandler(IAppDbContext db, IUserAccessService access)
     : IRequestHandler<GetBranchesQuery, AppResult<PagedResult<BranchListItemDto>>>
 {
@@ -405,6 +429,14 @@ public sealed class UpdateWarehouseCommandValidator : AbstractValidator<UpdateWa
         RuleFor(x => x.Id).GreaterThan(0);
         RuleFor(x => x.BranchId).GreaterThan(0);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+    }
+}
+
+public sealed class GetWarehousesQueryValidator : AbstractValidator<GetWarehousesQuery>
+{
+    public GetWarehousesQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
     }
 }
 
@@ -555,6 +587,14 @@ public sealed class UpdateCategoryCommandValidator : AbstractValidator<UpdateCat
     {
         RuleFor(x => x.Id).GreaterThan(0);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
+    }
+}
+
+public sealed class GetCategoriesQueryValidator : AbstractValidator<GetCategoriesQuery>
+{
+    public GetCategoriesQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
     }
 }
 
@@ -715,6 +755,14 @@ public sealed class UpdateProductCommandValidator : AbstractValidator<UpdateProd
         RuleFor(x => x.Cost).GreaterThanOrEqualTo(0);
         RuleFor(x => x.SalePrice).GreaterThanOrEqualTo(0);
         RuleFor(x => x.MinimumStock).GreaterThanOrEqualTo(0);
+    }
+}
+
+public sealed class GetProductsQueryValidator : AbstractValidator<GetProductsQuery>
+{
+    public GetProductsQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
     }
 }
 
@@ -1012,6 +1060,14 @@ public sealed class UpdateCustomerCommandValidator : AbstractValidator<UpdateCus
     }
 }
 
+public sealed class GetCustomersQueryValidator : AbstractValidator<GetCustomersQuery>
+{
+    public GetCustomersQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
+    }
+}
+
 public sealed class GetCustomersQueryHandler(IAppDbContext db, IUserAccessService access)
     : IRequestHandler<GetCustomersQuery, AppResult<PagedResult<CustomerListItemDto>>>
 {
@@ -1137,6 +1193,14 @@ public sealed class UpdateSupplierCommandValidator : AbstractValidator<UpdateSup
         RuleFor(x => x.Name).NotEmpty().MaximumLength(180);
         RuleFor(x => x.TaxId).NotEmpty().MaximumLength(40);
         RuleFor(x => x.Phone).NotEmpty().MaximumLength(40);
+    }
+}
+
+public sealed class GetSuppliersQueryValidator : AbstractValidator<GetSuppliersQuery>
+{
+    public GetSuppliersQueryValidator()
+    {
+        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
     }
 }
 

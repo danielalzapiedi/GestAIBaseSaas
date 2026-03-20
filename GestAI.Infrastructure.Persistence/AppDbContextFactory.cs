@@ -17,7 +17,7 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
             .Build();
 
         var connectionString = config.GetConnectionString("DefaultConnection")
-            ?? "Server=localhost;Database=GestAIBookingDb12;Trusted_Connection=True;TrustServerCertificate=True";
+            ?? "Server=localhost;Database=GestAIComercioDb;Trusted_Connection=True;TrustServerCertificate=True";
 
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(connectionString);

@@ -54,8 +54,9 @@ body {
 
 .ui-main {
     padding-top: 92px;
-    padding-left: 304px;
-    margin-left: 0 !important;
+    padding-left: 0;
+    margin-left: 300px !important;
+    width: calc(100% - 300px);
 }
 
 .ui-page-shell {
@@ -185,10 +186,16 @@ body {
     bottom: 14px;
     margin: 0;
     padding: 12px 10px 16px;
+    overflow-y: auto;
+    direction: rtl;
     border: 1px solid rgba(58, 72, 96, 0.92);
     border-radius: 24px;
     background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
     box-shadow: 0 18px 40px rgba(8, 15, 28, 0.24);
+}
+
+.ui-sidebar > * {
+    direction: ltr;
 }
 
 .ui-sidebar-head {
@@ -823,7 +830,8 @@ body {
 
 @media (max-width: 1199px) {
     .ui-main {
-        padding-left: 0;
+        margin-left: 0 !important;
+        width: auto;
     }
 
     .ui-sidebar {

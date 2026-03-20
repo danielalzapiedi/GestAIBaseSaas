@@ -365,7 +365,7 @@ public sealed class CommerceIntegrationTests
         var createList = new CreatePriceListCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
         var createListResult = await createList.Handle(new CreatePriceListCommand("Minorista", PriceListBaseMode.SalePrice, PriceListTargetType.Product, true), CancellationToken.None);
         Assert.True(createListResult.Success);
-        var listId = createListResult.Data ?? 0;
+        var listId = createListResult.Data;
 
         var handler = new ApplyPriceListAdjustmentCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
         var result = await handler.Handle(new ApplyPriceListAdjustmentCommand(listId, BulkPriceAdjustmentType.Percentage, 10, false, null), CancellationToken.None);

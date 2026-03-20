@@ -1,0 +1,186 @@
+@page "/sales/quick"
+@using GestAI.Web.Dtos
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Carga rápida de venta</PageTitle>
+
+<section class="page-hero">
+    <div>
+        <div class="page-hero-title">Carga rápida</div>
+        <div class="page-hero-subtitle">Flujo ágil para crear una venta operativa sin navegar por formularios largos.</div>
+    </div>
+    <div class="page-hero-meta">
+        <span class="page-hero-chip"><i class="bi bi-lightning-charge"></i> Operación rápida</span>
+        <button class="btn btn-outline-secondary" @onclick="GoBack">Volver a ventas</button>
+    </div>
+</section>
+
+@if (!_loaded)
+{
+    <div class="card"><div class="card-body">Cargando datos comerciales...</div></div>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card ui-form-card"><div class="card-body">
+                <div class="ui-card-header"><div><div class="ui-card-eyebrow">Carga operacional</div><h5 class="ui-card-title">Venta rápida</h5><div class="ui-card-subtitle">Elegí cliente, buscá SKUs y cerrá la venta con la menor cantidad de pasos.</div></div></div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Seleccionar cliente</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
+                    <div class="col-md-3"><label class="form-label">Fecha</label><input class="form-control" type="date" @bind-value="_issuedAtDate" /></div>
+                    <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status">@foreach (var status in Enum.GetValues<SaleStatus>()){<option value="@status">@SaleStatusLabel(status)</option>}</select></div>
+                    <div class="col-12"><label class="form-label">Observaciones</label><input class="form-control" @bind="_observations" placeholder="Referencia operativa opcional" /></div>
+                </div>
+
+                <div class="ui-form-section">
+                    <div class="ui-form-section-title">Búsqueda de productos</div>
+                    <input class="form-control mb-3" @bind="_search" placeholder="Buscar por nombre o código" />
+                    <div class="list-group ui-search-list">
+                        @foreach (var sku in Matches)
+                        {
+                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => AddSku(sku)">
+                                <span><strong>@sku.Label</strong><span class="ui-table-meta ms-2">@sku.InternalCode</span></span>
+                                <span>@sku.SalePrice.ToString("C")</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="ui-form-section">
+                    <div class="ui-form-section-title">Detalle</div>
+                    @if (_lines.Count == 0)
+                    {
+                        <EmptyState Title="Sin productos cargados" Description="Buscá un producto o variante para sumar líneas rápidamente." Icon="bi-basket"></EmptyState>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead><tr><th>Ítem</th><th>Código</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
+                                <tbody>
+                                @for (var i = 0; i < _lines.Count; i++)
+                                {
+                                    var line = _lines[i];
+                                    <tr>
+                                        <td>@line.Label</td>
+                                        <td>@line.InternalCode</td>
+                                        <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
+                                        <td><input class="form-control" type="number" step="0.01" @bind="line.UnitPrice" /></td>
+                                        <td class="fw-semibold">@line.Subtotal.ToString("C")</td>
+                                        <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)">Quitar</button></td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <div class="ui-action-bar">
+                    <div class="ui-inline-actions">
+                        <button class="btn btn-primary" @onclick="Save">Emitir venta rápida</button>
+                        <button class="btn btn-outline-secondary" @onclick="Clear">Limpiar</button>
+                    </div>
+                    <div class="ui-table-stack text-end"><span class="fw-semibold">Total @Total.ToString("C")</span><span class="ui-table-meta">@(_lines.Count == 1 ? "1 ítem" : $"{_lines.Count} ítems")</span></div>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card"><div class="card-body">
+                <div class="ui-card-header"><div><div class="ui-card-eyebrow">Uso recomendado</div><h5 class="ui-card-title">Cuándo usarlo</h5></div></div>
+                <div class="ui-list-stack">
+                    <div class="ui-check-card"><i class="bi bi-stopwatch text-primary"></i><div><strong>Mostrador</strong><div class="ui-table-meta">Venta rápida con pocas líneas y cliente ya conocido.</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-search text-primary"></i><div><strong>Búsqueda directa</strong><div class="ui-table-meta">Nombre o código interno, incluyendo variantes.</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-pencil-square text-primary"></i><div><strong>Ajuste mínimo</strong><div class="ui-table-meta">Solo cantidad y precio, para no frenar la operación.</div></div></div>
+                </div>
+            </div></div>
+        </div>
+    </div>
+}
+
+@code {
+    private CommercialDocumentSeedDataDto _seed = new(Array.Empty<LookupDto>(), Array.Empty<CommercialSkuLookupDto>(), Array.Empty<CommercialSkuLookupDto>());
+    private readonly List<QuickLine> _lines = new();
+    private bool _loaded;
+    private string _search = string.Empty;
+    private int _customerId;
+    private DateTime _issuedAtDate = DateTime.UtcNow.Date;
+    private SaleStatus _status = SaleStatus.Confirmed;
+    private string? _observations;
+
+    private IEnumerable<CommercialSkuLookupDto> Matches => string.IsNullOrWhiteSpace(_search)
+        ? (_seed.Products.Concat(_seed.Variants)).Where(x => x.IsActive).Take(8)
+        : (_seed.Products.Concat(_seed.Variants)).Where(x => x.IsActive && (x.Label.Contains(_search, StringComparison.OrdinalIgnoreCase) || x.InternalCode.Contains(_search, StringComparison.OrdinalIgnoreCase))).Take(8);
+    private decimal Total => _lines.Sum(x => x.Subtotal);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _seed = (await Api.GetAsync<AppResult<CommercialDocumentSeedDataDto>>("api/commerce/commercial/seed"))?.Data ?? new CommercialDocumentSeedDataDto(Array.Empty<LookupDto>(), Array.Empty<CommercialSkuLookupDto>(), Array.Empty<CommercialSkuLookupDto>());
+        _loaded = true;
+    }
+
+    private void AddSku(CommercialSkuLookupDto sku)
+    {
+        var existing = _lines.FirstOrDefault(x => x.ProductId == sku.ProductId && x.ProductVariantId == sku.ProductVariantId);
+        if (existing is not null)
+        {
+            existing.Quantity += 1;
+        }
+        else
+        {
+            _lines.Add(new QuickLine { ProductId = sku.ProductId, ProductVariantId = sku.ProductVariantId, Label = sku.Label, InternalCode = sku.InternalCode, Quantity = 1, UnitPrice = sku.SalePrice });
+        }
+        _search = string.Empty;
+    }
+
+    private void RemoveLine(int index)
+    {
+        if (index >= 0 && index < _lines.Count)
+            _lines.RemoveAt(index);
+    }
+
+    private async Task Save()
+    {
+        var result = await Api.PostAsync<object, AppResult<int>>("api/commerce/sales/quick", new
+        {
+            customerId = _customerId,
+            status = _status,
+            issuedAtUtc = _issuedAtDate,
+            observations = _observations,
+            items = _lines.Select(x => new { x.ProductId, x.ProductVariantId, x.Quantity }).ToList()
+        });
+
+        if (result?.Success == true && result.Data is > 0)
+            Navigation.NavigateTo($"/sales/{result.Data}");
+    }
+
+    private void Clear()
+    {
+        _lines.Clear();
+        _observations = null;
+        _search = string.Empty;
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/sales");
+
+    private static string SaleStatusLabel(SaleStatus status) => status switch
+    {
+        SaleStatus.Draft => "Borrador",
+        SaleStatus.Confirmed => "Confirmada",
+        SaleStatus.Completed => "Completada",
+        SaleStatus.Cancelled => "Cancelada",
+        _ => status.ToString()
+    };
+
+    private sealed class QuickLine
+    {
+        public int ProductId { get; set; }
+        public int? ProductVariantId { get; set; }
+        public string Label { get; set; } = string.Empty;
+        public string InternalCode { get; set; } = string.Empty;
+        public decimal Quantity { get; set; } = 1;
+        public decimal UnitPrice { get; set; }
+        public decimal Subtotal => Math.Round(Quantity * UnitPrice, 2, MidpointRounding.AwayFromZero);
+    }
+}

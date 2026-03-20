@@ -23,6 +23,10 @@ public interface IAppDbContext
     DbSet<PriceList> PriceLists { get; }
     DbSet<PriceListItem> PriceListItems { get; }
     DbSet<Customer> Customers { get; }
+    DbSet<Quote> Quotes { get; }
+    DbSet<QuoteItem> QuoteItems { get; }
+    DbSet<Sale> Sales { get; }
+    DbSet<SaleItem> SaleItems { get; }
     DbSet<Supplier> Suppliers { get; }
     DbSet<User> Users { get; }
     DatabaseFacade Database { get; }

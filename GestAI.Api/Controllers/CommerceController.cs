@@ -197,6 +197,51 @@ public sealed class CommerceController(IMediator mediator) : ControllerBase
     public async Task<IActionResult> ToggleCustomer(int id, [FromBody] ToggleBody body, CancellationToken ct)
         => Ok(await mediator.Send(new ToggleCustomerStatusCommand(id, body.IsActive), ct));
 
+
+    [HttpGet("commercial/seed")]
+    public async Task<IActionResult> GetCommercialSeed(CancellationToken ct)
+        => Ok(await mediator.Send(new GetCommercialDocumentSeedDataQuery(), ct));
+
+    [HttpGet("quotes")]
+    public async Task<IActionResult> GetQuotes([FromQuery] string? search = null, [FromQuery] QuoteStatus? status = null, [FromQuery] int? customerId = null, [FromQuery] bool? onlyConvertible = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await mediator.Send(new GetQuotesQuery(search, status, customerId, onlyConvertible, page, pageSize), ct));
+
+    [HttpGet("quotes/{id:int}")]
+    public async Task<IActionResult> GetQuote(int id, CancellationToken ct)
+        => Ok(await mediator.Send(new GetQuoteByIdQuery(id), ct));
+
+    [HttpPost("quotes")]
+    public async Task<IActionResult> CreateQuote([FromBody] CreateQuoteCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command, ct));
+
+    [HttpPut("quotes/{id:int}")]
+    public async Task<IActionResult> UpdateQuote(int id, [FromBody] UpdateQuoteCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command with { Id = id }, ct));
+
+    [HttpPost("quotes/{id:int}/convert-to-sale")]
+    public async Task<IActionResult> ConvertQuoteToSale(int id, [FromBody] ConvertQuoteToSaleCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command with { QuoteId = id }, ct));
+
+    [HttpGet("sales")]
+    public async Task<IActionResult> GetSales([FromQuery] string? search = null, [FromQuery] SaleStatus? status = null, [FromQuery] int? customerId = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+        => Ok(await mediator.Send(new GetSalesQuery(search, status, customerId, page, pageSize), ct));
+
+    [HttpGet("sales/{id:int}")]
+    public async Task<IActionResult> GetSale(int id, CancellationToken ct)
+        => Ok(await mediator.Send(new GetSaleByIdQuery(id), ct));
+
+    [HttpPost("sales")]
+    public async Task<IActionResult> CreateSale([FromBody] CreateSaleCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command, ct));
+
+    [HttpPut("sales/{id:int}")]
+    public async Task<IActionResult> UpdateSale(int id, [FromBody] UpdateSaleCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command with { Id = id }, ct));
+
+    [HttpPost("sales/quick")]
+    public async Task<IActionResult> CreateQuickSale([FromBody] CreateQuickSaleCommand command, CancellationToken ct)
+        => Ok(await mediator.Send(command, ct));
+
     [HttpGet("suppliers")]
     public async Task<IActionResult> GetSuppliers([FromQuery] string? search = null, [FromQuery] bool? isActive = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
         => Ok(await mediator.Send(new GetSuppliersQuery(search, isActive, page, pageSize), ct));

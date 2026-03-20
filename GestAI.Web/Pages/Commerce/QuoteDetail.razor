@@ -1,0 +1,122 @@
+@page "/quotes/{Id:int}"
+@using GestAI.Web.Dtos
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Detalle de presupuesto</PageTitle>
+
+@if (_detail is null)
+{
+    <div class="card"><div class="card-body">Cargando presupuesto...</div></div>
+}
+else
+{
+    <section class="page-hero">
+        <div>
+            <div class="page-hero-title">@_detail.Number</div>
+            <div class="page-hero-subtitle">Detalle documental del presupuesto con cabecera, líneas, totales y trazabilidad.</div>
+        </div>
+        <div class="page-hero-meta">
+            <StatusBadge Text="@QuoteStatusLabel(_detail.Status)" CssClass="@QuoteStatusClass(_detail.Status)" />
+            <button class="btn btn-outline-secondary" @onclick="GoBack">Volver</button>
+            @if (_detail.CanConvertToSale)
+            {
+                <button class="btn btn-success" @onclick="Convert">Convertir a venta</button>
+            }
+        </div>
+    </section>
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card ui-data-card"><div class="card-body">
+                <div class="ui-card-header"><div><div class="ui-card-eyebrow">Cabecera</div><h5 class="ui-card-title">Documento comercial</h5><div class="ui-card-subtitle">Información principal del comprobante y del cliente.</div></div></div>
+                <div class="row g-3">
+                    <div class="col-md-6"><div class="ui-table-stack"><span class="fw-semibold">Cliente</span><span class="ui-table-meta">@_detail.CustomerName</span></div></div>
+                    <div class="col-md-3"><div class="ui-table-stack"><span class="fw-semibold">Fecha</span><span class="ui-table-meta">@_detail.IssuedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</span></div></div>
+                    <div class="col-md-3"><div class="ui-table-stack"><span class="fw-semibold">Vencimiento</span><span class="ui-table-meta">@(_detail.ValidUntilUtc.HasValue ? _detail.ValidUntilUtc.Value.ToLocalTime().ToString("dd/MM/yyyy") : "Sin fecha")</span></div></div>
+                    <div class="col-md-6"><div class="ui-table-stack"><span class="fw-semibold">Observaciones</span><span class="ui-table-meta">@(!string.IsNullOrWhiteSpace(_detail.Observations) ? _detail.Observations : "Sin observaciones")</span></div></div>
+                    <div class="col-md-6"><div class="ui-table-stack"><span class="fw-semibold">Trazabilidad</span><span class="ui-table-meta">@TraceabilityText</span></div></div>
+                </div>
+            </div></div>
+
+            <div class="card ui-data-card mt-3"><div class="card-body">
+                <div class="ui-card-header"><div><div class="ui-card-eyebrow">Detalle</div><h5 class="ui-card-title">Ítems del presupuesto</h5><div class="ui-card-subtitle">Snapshot comercial congelado al momento de la emisión.</div></div></div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead><tr><th>Descripción</th><th>Código</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th></tr></thead>
+                        <tbody>
+                        @foreach (var line in _detail.Items.OrderBy(x => x.SortOrder))
+                        {
+                            <tr>
+                                <td>@line.Description</td>
+                                <td>@line.InternalCode</td>
+                                <td>@line.Quantity</td>
+                                <td>@line.UnitPrice.ToString("C")</td>
+                                <td class="fw-semibold">@line.LineSubtotal.ToString("C")</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div></div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card"><div class="card-body">
+                <div class="ui-card-header"><div><div class="ui-card-eyebrow">Totales</div><h5 class="ui-card-title">Resumen económico</h5></div></div>
+                <div class="ui-list-stack">
+                    <div class="ui-check-card"><i class="bi bi-calculator text-primary"></i><div><strong>Subtotal</strong><div class="ui-table-meta">@_detail.Subtotal.ToString("C")</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-cash-stack text-primary"></i><div><strong>Total</strong><div class="ui-table-meta">@_detail.Total.ToString("C")</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-card-list text-primary"></i><div><strong>Líneas</strong><div class="ui-table-meta">@(_detail.Items.Count == 1 ? "1 ítem" : $"{_detail.Items.Count} ítems")</div></div></div>
+                </div>
+            </div></div>
+            <div class="card mt-3"><div class="card-body">
+                <div class="ui-card-header"><div><div class="ui-card-eyebrow">Auditoría básica</div><h5 class="ui-card-title">Seguimiento</h5></div></div>
+                <div class="ui-table-stack mb-3"><span class="fw-semibold">Creado</span><span class="ui-table-meta">@_detail.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @_detail.CreatedByUserId</span></div>
+                <div class="ui-table-stack mb-3"><span class="fw-semibold">Última modificación</span><span class="ui-table-meta">@(_detail.ModifiedAtUtc.HasValue ? $"{_detail.ModifiedAtUtc.Value.ToLocalTime():dd/MM/yyyy HH:mm} · {_detail.ModifiedByUserId}" : "Sin cambios posteriores")</span></div>
+                <div class="ui-table-stack"><span class="fw-semibold">Venta generada</span><span class="ui-table-meta">@(_detail.GeneratedSaleId.HasValue ? _detail.GeneratedSaleNumber : "Todavía no convertida")</span></div>
+            </div></div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private QuoteDetailDto? _detail;
+    private string TraceabilityText => _detail is null
+        ? string.Empty
+        : _detail.GeneratedSaleId.HasValue
+            ? $"Convertido en {_detail.GeneratedSaleNumber} el {(_detail.ConvertedToSaleAtUtc.HasValue ? _detail.ConvertedToSaleAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") : "fecha no disponible")}"
+            : "Sin venta generada todavía.";
+
+    protected override async Task OnParametersSetAsync()
+        => _detail = (await Api.GetAsync<AppResult<QuoteDetailDto>>($"api/commerce/quotes/{Id}"))?.Data;
+
+    private void GoBack() => Navigation.NavigateTo("/quotes");
+
+    private async Task Convert()
+    {
+        var result = await Api.PostAsync<object, AppResult<int>>($"api/commerce/quotes/{Id}/convert-to-sale", new { quoteId = Id, saleStatus = SaleStatus.Draft, issuedAtUtc = DateTime.UtcNow, observations = (string?)null });
+        if (result?.Success == true && result.Data is > 0)
+            Navigation.NavigateTo($"/sales/{result.Data}");
+    }
+
+    private static string QuoteStatusLabel(QuoteStatus status) => status switch
+    {
+        QuoteStatus.Draft => "Borrador",
+        QuoteStatus.Sent => "Enviado",
+        QuoteStatus.Approved => "Aprobado",
+        QuoteStatus.Rejected => "Rechazado",
+        QuoteStatus.Expired => "Vencido",
+        QuoteStatus.Converted => "Convertido",
+        _ => status.ToString()
+    };
+
+    private static string QuoteStatusClass(QuoteStatus status) => status switch
+    {
+        QuoteStatus.Approved => "ui-badge ui-badge-success",
+        QuoteStatus.Converted => "ui-badge ui-badge-primary",
+        QuoteStatus.Rejected => "ui-badge ui-badge-danger",
+        QuoteStatus.Expired => "ui-badge ui-badge-warning",
+        _ => "ui-badge ui-badge-neutral"
+    };
+}

@@ -26,6 +26,10 @@ public class AppDbContext : IdentityDbContext<User>, IAppDbContext
     public DbSet<PriceList> PriceLists => Set<PriceList>();
     public DbSet<PriceListItem> PriceListItems => Set<PriceListItem>();
     public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Quote> Quotes => Set<Quote>();
+    public DbSet<QuoteItem> QuoteItems => Set<QuoteItem>();
+    public DbSet<Sale> Sales => Set<Sale>();
+    public DbSet<SaleItem> SaleItems => Set<SaleItem>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     DbSet<User> IAppDbContext.Users => Set<User>();
 

@@ -1,0 +1,398 @@
+@page "/quotes"
+@using GestAI.Web.Dtos
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Presupuestos</PageTitle>
+
+<section class="page-hero">
+    <div>
+        <div class="page-hero-title">Presupuestos</div>
+        <div class="page-hero-subtitle">Armá propuestas comerciales reales, con cliente, vigencia, estados claros y conversión posterior a venta.</div>
+    </div>
+    <div class="page-hero-meta">
+        <span class="page-hero-chip"><i class="bi bi-file-earmark-text"></i> @_result?.TotalCount ?? 0 presupuestos</span>
+        <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo presupuesto</button>
+    </div>
+</section>
+
+<div class="row g-3 ui-summary-grid mb-1">
+    <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Convertibles</div><div class="ui-stat-value">@ConvertibleCount</div><div class="ui-stat-foot">Presupuestos válidos y no convertidos en la página.</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Total visible</div><div class="ui-stat-value">@VisibleTotal.ToString("C")</div><div class="ui-stat-foot">Total comercial acumulado de la página actual.</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Cliente filtro</div><div class="ui-stat-value">@SelectedCustomerLabel</div><div class="ui-stat-foot">@StatusFilterLabel</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Carga rápida</div><div class="ui-stat-value">@_seed.Products.Count + @_seed.Variants.Count</div><div class="ui-stat-foot">SKUs listos para agregar al detalle.</div></div></div></div>
+</div>
+
+<div class="card ui-filter-card"><div class="card-body">
+    <div class="row g-2 align-items-end">
+        <div class="col-lg-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, cliente" /></div>
+        <div class="col-lg-3"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
+        <div class="col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
+        <div class="col-lg-2"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
+        <div class="col-lg-1"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+    </div>
+</div></div>
+
+<div class="ui-split-layout">
+    <div>
+        @if (!_loaded)
+        {
+            <div class="card"><div class="card-body">Cargando presupuestos...</div></div>
+        }
+        else if (_result?.Items.Count == 0)
+        {
+            <EmptyState Title="No hay presupuestos"
+                        Description="Creá el primer presupuesto comercial para empezar el circuito del Release 3."
+                        Icon="bi-file-earmark-text">
+                <button class="btn btn-primary" @onclick="NewItem">Crear presupuesto</button>
+            </EmptyState>
+        }
+        else
+        {
+            <div class="card ui-data-card"><div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <div class="ui-card-eyebrow">Documentos comerciales</div>
+                        <h5 class="ui-card-title">Listado de presupuestos</h5>
+                        <div class="ui-card-subtitle">Con seguimiento de estado, vigencia, cliente y pasaje a venta.</div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fechas</th><th>Items</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var item in _result!.Items)
+                        {
+                            <tr>
+                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.Number</span><span class="ui-table-meta">Presupuesto comercial</span></div></td>
+                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.CustomerName</span><span class="ui-table-meta">Cliente asociado</span></div></td>
+                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.IssuedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</span><span class="ui-table-meta">Vence @(item.ValidUntilUtc.HasValue ? item.ValidUntilUtc.Value.ToLocalTime().ToString("dd/MM/yyyy") : "sin fecha")</span></div></td>
+                                <td><StatusBadge Text="@(item.ItemsCount == 1 ? "1 ítem" : $"{item.ItemsCount} ítems")" CssClass="ui-badge ui-badge-neutral" /></td>
+                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.Total.ToString("C")</span><span class="ui-table-meta">Subtotal @item.Subtotal.ToString("C")</span></div></td>
+                                <td><StatusBadge Text="@QuoteStatusLabel(item.Status)" CssClass="@QuoteStatusClass(item.Status)" /></td>
+                                <td>
+                                    <div class="ui-inline-actions flex-wrap">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item.Id)">Editar</button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenDetail(item.Id)">Detalle</button>
+                                        @if (item.CanConvertToSale)
+                                        {
+                                            <button class="btn btn-sm btn-success" @onclick="() => Convert(item.Id)">Convertir</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="ui-action-bar">
+                    <span class="text-muted">Página @_page de @TotalPages</span>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+                        <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+                    </div>
+                </div>
+            </div></div>
+        }
+    </div>
+
+    <div class="ui-section-grid">
+        <div class="card">
+            <div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <div class="ui-card-eyebrow">Lectura operativa</div>
+                        <h5 class="ui-card-title">Trazabilidad rápida</h5>
+                        <div class="ui-card-subtitle">En este release el presupuesto queda listo para convertirse a venta sin perder snapshot de líneas.</div>
+                    </div>
+                </div>
+                <div class="ui-list-stack">
+                    <div class="ui-check-card"><i class="bi bi-arrow-left-right text-primary"></i><div><strong>Conversión controlada</strong><div class="ui-table-meta">Un presupuesto genera una venta y queda trazado.</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-calendar-event text-primary"></i><div><strong>Vigencia</strong><div class="ui-table-meta">La fecha de vencimiento condiciona si todavía puede convertirse.</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-receipt text-primary"></i><div><strong>Snapshot</strong><div class="ui-table-meta">Descripción, código, cantidades y precios quedan congelados por documento.</div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card ui-form-card">
+            <div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <div class="ui-card-eyebrow">Editor</div>
+                        <h5 class="ui-card-title">@(_form.Id == 0 ? "Nuevo presupuesto" : $"Editar {_editingNumber}")</h5>
+                        <div class="ui-card-subtitle">Documento comercial con cabecera, detalle y totales consistentes.</div>
+                    </div>
+                </div>
+
+                @if (!_showForm)
+                {
+                    <EmptyState Title="Seleccioná una acción"
+                                Description="Creá un presupuesto nuevo o editá uno ya emitido desde la tabla principal."
+                                Icon="bi-pencil-square">
+                        <button class="btn btn-primary" @onclick="NewItem">Nuevo presupuesto</button>
+                    </EmptyState>
+                }
+                else
+                {
+                    <div class="ui-form-section">
+                        <div class="ui-form-section-title">Cabecera</div>
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label">Cliente</label><select class="form-select" @bind="_form.CustomerId"><option value="0">Seleccionar cliente</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
+                            <div class="col-md-3"><label class="form-label">Fecha</label><input class="form-control" type="date" @bind="_issuedAtText" /></div>
+                            <div class="col-md-3"><label class="form-label">Vencimiento</label><input class="form-control" type="date" @bind="_validUntilText" /></div>
+                            <div class="col-md-6"><label class="form-label">Estado</label><select class="form-select" @bind="_form.Status">@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
+                            <div class="col-md-6"><label class="form-label">Observaciones</label><input class="form-control" @bind="_form.Observations" placeholder="Notas comerciales, alcance, condiciones" /></div>
+                        </div>
+                    </div>
+
+                    <div class="ui-form-section">
+                        <div class="ui-variant-head">
+                            <div>
+                                <div class="ui-form-section-title mb-1">Ítems</div>
+                                <div class="ui-card-subtitle mt-0">Carga ágil con productos o variantes y edición mínima de cantidad/precio.</div>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" @onclick="AddBlankLine">Agregar línea</button>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-12"><label class="form-label">Búsqueda rápida</label><input class="form-control" @bind="_quickSearch" placeholder="Buscar por nombre o código" /></div>
+                            @if (QuickMatches.Count > 0)
+                            {
+                                <div class="col-12">
+                                    <div class="list-group ui-search-list">
+                                        @foreach (var sku in QuickMatches)
+                                        {
+                                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => AddSku(sku)">
+                                                <span><strong>@sku.Label</strong><span class="ui-table-meta ms-2">@sku.InternalCode</span></span>
+                                                <span>@sku.SalePrice.ToString("C")</span>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                        @if (_form.Items.Count == 0)
+                        {
+                            <EmptyState Title="Sin líneas cargadas"
+                                        Description="Agregá productos para calcular subtotal y total del presupuesto."
+                                        Icon="bi-card-list">
+                                <button class="btn btn-outline-primary" @onclick="AddBlankLine">Agregar línea</button>
+                            </EmptyState>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead><tr><th>Descripción</th><th>Código</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th></th></tr></thead>
+                                    <tbody>
+                                    @for (var i = 0; i < _form.Items.Count; i++)
+                                    {
+                                        var line = _form.Items[i];
+                                        <tr>
+                                            <td><input class="form-control" @bind="line.Description" /></td>
+                                            <td><input class="form-control" @bind="line.InternalCode" /></td>
+                                            <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
+                                            <td><input class="form-control" type="number" step="0.01" @bind="line.UnitPrice" /></td>
+                                            <td class="fw-semibold">@line.LineSubtotal.ToString("C")</td>
+                                            <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)">Quitar</button></td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="ui-action-bar">
+                        <div class="ui-inline-actions">
+                            <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                            <button class="btn btn-outline-secondary" @onclick="Cancel">Cancelar</button>
+                        </div>
+                        <div class="ui-table-stack text-end">
+                            <span class="fw-semibold">Total @FormTotal.ToString("C")</span>
+                            <span class="ui-table-meta">@(_form.Items.Count == 1 ? "1 ítem" : $"{_form.Items.Count} ítems")</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private PagedResult<QuoteListItemDto>? _result;
+    private CommercialDocumentSeedDataDto _seed = new(Array.Empty<LookupDto>(), Array.Empty<CommercialSkuLookupDto>(), Array.Empty<CommercialSkuLookupDto>());
+    private readonly List<CommercialSkuLookupDto> _skuIndex = new();
+    private QuoteUpsertCommand _form = new();
+    private bool _loaded;
+    private bool _showForm;
+    private string _search = string.Empty;
+    private string _status = string.Empty;
+    private string _onlyConvertible = string.Empty;
+    private string _quickSearch = string.Empty;
+    private int _customerId;
+    private int _page = 1;
+    private const int PageSize = 10;
+    private string _editingNumber = string.Empty;
+    private string _issuedAtText = DateTime.UtcNow.ToString("yyyy-MM-dd");
+    private string _validUntilText = string.Empty;
+
+    private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
+    private int ConvertibleCount => _result?.Items.Count(x => x.CanConvertToSale) ?? 0;
+    private decimal VisibleTotal => _result?.Items.Sum(x => x.Total) ?? 0m;
+    private string SelectedCustomerLabel => _customerId == 0 ? "Todos" : _seed.Customers.FirstOrDefault(x => x.Id == _customerId)?.Name ?? "Cliente";
+    private string StatusFilterLabel => string.IsNullOrWhiteSpace(_status) ? "Sin filtro de estado" : QuoteStatusLabel(Enum.Parse<QuoteStatus>(_status));
+    private decimal FormTotal => _form.Items.Sum(x => x.LineSubtotal);
+    private List<CommercialSkuLookupDto> QuickMatches => string.IsNullOrWhiteSpace(_quickSearch)
+        ? new()
+        : _skuIndex.Where(x => x.IsActive && (x.Label.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase) || x.InternalCode.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase))).Take(6).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSeed();
+        await Load();
+    }
+
+    private async Task LoadSeed()
+    {
+        _seed = (await Api.GetAsync<AppResult<CommercialDocumentSeedDataDto>>("api/commerce/commercial/seed"))?.Data
+            ?? new CommercialDocumentSeedDataDto(Array.Empty<LookupDto>(), Array.Empty<CommercialSkuLookupDto>(), Array.Empty<CommercialSkuLookupDto>());
+        _skuIndex.Clear();
+        _skuIndex.AddRange(_seed.Products);
+        _skuIndex.AddRange(_seed.Variants);
+    }
+
+    private async Task Load()
+    {
+        _loaded = false;
+        var status = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&status={_status}";
+        var customer = _customerId == 0 ? string.Empty : $"&customerId={_customerId}";
+        var convertible = string.IsNullOrWhiteSpace(_onlyConvertible) ? string.Empty : "&onlyConvertible=true";
+        _result = (await Api.GetAsync<AppResult<PagedResult<QuoteListItemDto>>>($"api/commerce/quotes?search={Uri.EscapeDataString(_search ?? string.Empty)}{status}{customer}{convertible}&page={_page}&pageSize={PageSize}"))?.Data;
+        _loaded = true;
+    }
+
+    private async Task Search() { _page = 1; await Load(); }
+
+    private void NewItem()
+    {
+        _form = new QuoteUpsertCommand { Status = QuoteStatus.Draft, IssuedAtUtc = DateTime.UtcNow };
+        _issuedAtText = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        _validUntilText = string.Empty;
+        _quickSearch = string.Empty;
+        _editingNumber = "borrador";
+        _showForm = true;
+    }
+
+    private async Task Edit(int id)
+    {
+        var detail = (await Api.GetAsync<AppResult<QuoteDetailDto>>($"api/commerce/quotes/{id}"))?.Data;
+        if (detail is null) return;
+        _form = new QuoteUpsertCommand
+        {
+            Id = detail.Id,
+            CustomerId = detail.CustomerId,
+            Status = detail.Status,
+            IssuedAtUtc = detail.IssuedAtUtc,
+            ValidUntilUtc = detail.ValidUntilUtc,
+            Observations = detail.Observations,
+            Items = detail.Items.Select(x => new CommercialLineFormModel
+            {
+                ProductId = x.ProductId,
+                ProductVariantId = x.ProductVariantId,
+                Description = x.Description,
+                InternalCode = x.InternalCode,
+                Quantity = x.Quantity,
+                UnitPrice = x.UnitPrice
+            }).ToList()
+        };
+        _issuedAtText = detail.IssuedAtUtc.ToString("yyyy-MM-dd");
+        _validUntilText = detail.ValidUntilUtc?.ToString("yyyy-MM-dd") ?? string.Empty;
+        _editingNumber = detail.Number;
+        _showForm = true;
+    }
+
+    private async Task Save()
+    {
+        _form.IssuedAtUtc = ParseDate(_issuedAtText, DateTime.UtcNow);
+        _form.ValidUntilUtc = string.IsNullOrWhiteSpace(_validUntilText) ? null : ParseDate(_validUntilText, DateTime.UtcNow);
+        var body = new
+        {
+            _form.Id,
+            _form.CustomerId,
+            _form.Status,
+            _form.IssuedAtUtc,
+            _form.ValidUntilUtc,
+            _form.Observations,
+            Items = _form.Items.Select((x, idx) => new { x.ProductId, x.ProductVariantId, x.Description, x.Quantity, x.UnitPrice, SortOrder = idx + 1 }).ToList()
+        };
+
+        if (_form.Id == 0)
+            await Api.PostAsync("api/commerce/quotes", body);
+        else
+            await Api.PutAsync($"api/commerce/quotes/{_form.Id}", body);
+
+        _showForm = false;
+        await Load();
+    }
+
+    private async Task Convert(int id)
+    {
+        var result = await Api.PostAsync<object, AppResult<int>>($"api/commerce/quotes/{id}/convert-to-sale", new { quoteId = id, saleStatus = SaleStatus.Draft, issuedAtUtc = DateTime.UtcNow, observations = (string?)null });
+        if (result?.Success == true && result.Data.HasValue)
+        {
+            await Load();
+            Navigation.NavigateTo($"/sales/{result.Data.Value}");
+        }
+    }
+
+    private void AddBlankLine() => _form.Items.Add(new CommercialLineFormModel { Quantity = 1 });
+
+    private void AddSku(CommercialSkuLookupDto sku)
+    {
+        _form.Items.Add(new CommercialLineFormModel
+        {
+            ProductId = sku.ProductId,
+            ProductVariantId = sku.ProductVariantId,
+            Description = sku.Label,
+            InternalCode = sku.InternalCode,
+            Quantity = 1,
+            UnitPrice = sku.SalePrice
+        });
+        _quickSearch = string.Empty;
+    }
+
+    private void RemoveLine(int index)
+    {
+        if (index >= 0 && index < _form.Items.Count)
+            _form.Items.RemoveAt(index);
+    }
+
+    private void Cancel() => _showForm = false;
+    private void OpenDetail(int id) => Navigation.NavigateTo($"/quotes/{id}");
+    private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
+    private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+
+    private static DateTime ParseDate(string value, DateTime fallback)
+        => DateTime.TryParse(value, out var parsed) ? parsed : fallback;
+
+    private static string QuoteStatusLabel(QuoteStatus status) => status switch
+    {
+        QuoteStatus.Draft => "Borrador",
+        QuoteStatus.Sent => "Enviado",
+        QuoteStatus.Approved => "Aprobado",
+        QuoteStatus.Rejected => "Rechazado",
+        QuoteStatus.Expired => "Vencido",
+        QuoteStatus.Converted => "Convertido",
+        _ => status.ToString()
+    };
+
+    private static string QuoteStatusClass(QuoteStatus status) => status switch
+    {
+        QuoteStatus.Approved => "ui-badge ui-badge-success",
+        QuoteStatus.Converted => "ui-badge ui-badge-primary",
+        QuoteStatus.Rejected => "ui-badge ui-badge-danger",
+        QuoteStatus.Expired => "ui-badge ui-badge-warning",
+        QuoteStatus.Sent => "ui-badge ui-badge-neutral",
+        _ => "ui-badge ui-badge-neutral"
+    };
+}

@@ -13,6 +13,141 @@ namespace GestAI.Tests;
 
 public sealed class CommerceIntegrationTests
 {
+
+    [Fact]
+    public async Task CreateQuote_ComputesTotals_AndPersistsSnapshotItems()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-quotes@test");
+
+        var customer = new Customer { AccountId = fixture.Account.Id, Name = "Cliente Demo", Phone = "123", Address = "Dir", City = "Ciudad", CustomerType = CustomerType.Mixed, IsActive = true };
+        var category = new ProductCategory { AccountId = fixture.Account.Id, Name = "General", IsActive = true };
+        db.Customers.Add(customer);
+        db.ProductCategories.Add(category);
+        await db.SaveChangesAsync();
+
+        var product = new Product
+        {
+            AccountId = fixture.Account.Id,
+            Name = "Producto comercial",
+            InternalCode = "DOC-1",
+            Description = "Producto",
+            CategoryId = category.Id,
+            Brand = "Marca",
+            UnitOfMeasure = UnitOfMeasure.Unit,
+            Cost = 10,
+            SalePrice = 25,
+            MinimumStock = 0,
+            IsActive = true
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+
+        var handler = new CreateQuoteCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
+        var result = await handler.Handle(new CreateQuoteCommand(customer.Id, QuoteStatus.Sent, DateTime.UtcNow, DateTime.UtcNow.AddDays(7), "Observación", new[]
+        {
+            new CommercialLineInput(product.Id, null, null, 2, 25, 1),
+            new CommercialLineInput(product.Id, null, "Producto comercial (bonificado)", 1, 20, 2)
+        }), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var quote = await db.Quotes.Include(x => x.Items).SingleAsync(x => x.Id == result.Data);
+        Assert.Equal("P-000001", quote.Number);
+        Assert.Equal(70, quote.Total);
+        Assert.Equal(2, quote.Items.Count);
+        Assert.Contains(quote.Items, x => x.Description == "Producto comercial");
+        Assert.Contains(quote.Items, x => x.Description == "Producto comercial (bonificado)");
+    }
+
+    [Fact]
+    public async Task ConvertQuoteToSale_CreatesSale_AndMarksQuoteAsConverted()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-convert@test");
+
+        var customer = new Customer { AccountId = fixture.Account.Id, Name = "Cliente Demo", Phone = "123", Address = "Dir", City = "Ciudad", CustomerType = CustomerType.Mixed, IsActive = true };
+        var category = new ProductCategory { AccountId = fixture.Account.Id, Name = "General", IsActive = true };
+        db.Customers.Add(customer);
+        db.ProductCategories.Add(category);
+        await db.SaveChangesAsync();
+
+        var product = new Product
+        {
+            AccountId = fixture.Account.Id,
+            Name = "Producto comercial",
+            InternalCode = "DOC-2",
+            Description = "Producto",
+            CategoryId = category.Id,
+            Brand = "Marca",
+            UnitOfMeasure = UnitOfMeasure.Unit,
+            Cost = 10,
+            SalePrice = 30,
+            MinimumStock = 0,
+            IsActive = true
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+
+        var createQuote = new CreateQuoteCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
+        var quoteResult = await createQuote.Handle(new CreateQuoteCommand(customer.Id, QuoteStatus.Approved, DateTime.UtcNow, DateTime.UtcNow.AddDays(5), null, new[]
+        {
+            new CommercialLineInput(product.Id, null, null, 3, 30, 1)
+        }), CancellationToken.None);
+
+        var convert = new ConvertQuoteToSaleCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
+        var result = await convert.Handle(new ConvertQuoteToSaleCommand(quoteResult.Data!.Value, SaleStatus.Confirmed, DateTime.UtcNow, null), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var quote = await db.Quotes.SingleAsync(x => x.Id == quoteResult.Data!.Value);
+        var sale = await db.Sales.Include(x => x.Items).SingleAsync(x => x.Id == result.Data);
+        Assert.Equal(QuoteStatus.Converted, quote.Status);
+        Assert.Equal(quote.Id, sale.SourceQuoteId);
+        Assert.Equal(90, sale.Total);
+        Assert.Single(sale.Items);
+    }
+
+    [Fact]
+    public async Task CreateQuickSale_UsesCurrentSalePrice_ForSkuSnapshot()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-quick@test");
+
+        var customer = new Customer { AccountId = fixture.Account.Id, Name = "Cliente Mostrador", Phone = "123", Address = "Dir", City = "Ciudad", CustomerType = CustomerType.Consumer, IsActive = true };
+        var category = new ProductCategory { AccountId = fixture.Account.Id, Name = "General", IsActive = true };
+        db.Customers.Add(customer);
+        db.ProductCategories.Add(category);
+        await db.SaveChangesAsync();
+
+        var product = new Product
+        {
+            AccountId = fixture.Account.Id,
+            Name = "Producto rápido",
+            InternalCode = "QK-1",
+            Description = "Producto",
+            CategoryId = category.Id,
+            Brand = "Marca",
+            UnitOfMeasure = UnitOfMeasure.Unit,
+            Cost = 10,
+            SalePrice = 40,
+            MinimumStock = 0,
+            IsActive = true
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+
+        var handler = new CreateQuickSaleCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
+        var result = await handler.Handle(new CreateQuickSaleCommand(customer.Id, SaleStatus.Confirmed, DateTime.UtcNow, "Mostrador", new[]
+        {
+            new QuickCommercialLineDto(product.Id, null, 2)
+        }), CancellationToken.None);
+
+        Assert.True(result.Success);
+        var sale = await db.Sales.Include(x => x.Items).SingleAsync(x => x.Id == result.Data);
+        Assert.Equal(80, sale.Total);
+        Assert.Equal("Producto rápido", sale.Items.Single().Description);
+        Assert.Equal(40, sale.Items.Single().UnitPrice);
+    }
+
     [Fact]
     public async Task GetBranchesQuery_Fails_WhenUserHasNoModuleAccess()
     {

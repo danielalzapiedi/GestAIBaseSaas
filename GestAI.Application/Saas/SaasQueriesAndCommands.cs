@@ -19,6 +19,7 @@ public sealed class GetCurrentUserAccessQueryHandler(IAppDbContext db, ICurrentU
         var isOwner = false;
         var isPlatformAdmin = current.IsInRole("SuperAdmin");
         SaasPlanDefinition? plan = null;
+        IReadOnlyCollection<SaasModule>? assignedModules = null;
 
         if (accountId.HasValue)
         {
@@ -27,7 +28,9 @@ public sealed class GetCurrentUserAccessQueryHandler(IAppDbContext db, ICurrentU
                 .Select(x => new
                 {
                     IsOwner = x.OwnerUserId == current.UserId,
-                    Role = x.Users.Where(u => u.UserId == current.UserId && u.IsActive).Select(u => (InternalUserRole?)u.Role).FirstOrDefault(),
+                    Membership = x.Users.Where(u => u.UserId == current.UserId && u.IsActive)
+                        .Select(u => new { Role = (InternalUserRole?)u.Role, u.AllowedModules })
+                        .FirstOrDefault(),
                     Plan = x.SubscriptionPlans.Where(p => p.IsActive).OrderByDescending(p => p.StartedAtUtc)
                         .Select(p => p.PlanDefinition)
                         .FirstOrDefault()
@@ -37,13 +40,14 @@ public sealed class GetCurrentUserAccessQueryHandler(IAppDbContext db, ICurrentU
             if (accountData is not null)
             {
                 isOwner = accountData.IsOwner;
-                role = isOwner ? InternalUserRole.Owner : accountData.Role;
+                role = isOwner ? InternalUserRole.Owner : accountData.Membership?.Role;
                 plan = accountData.Plan;
+                assignedModules = isOwner ? null : SaasPermissionMap.ParseAssignedModules(accountData.Membership?.AllowedModules);
             }
         }
 
         var modules = Enum.GetValues<SaasModule>()
-            .Select(module => new ModuleAccessDto(module, SaasPermissionMap.HasAccess(role, plan, module, isOwner, isPlatformAdmin)))
+            .Select(module => new ModuleAccessDto(module, SaasPermissionMap.HasAccess(role, plan, module, isOwner, isPlatformAdmin, assignedModules)))
             .ToList();
 
         return AppResult<CurrentUserAccessDto>.Ok(new CurrentUserAccessDto(accountId, role, isOwner, user.IsActive, isPlatformAdmin, modules));
@@ -144,17 +148,30 @@ public sealed class GetAccountUsersQueryHandler(IAppDbContext db, IUserAccessSer
             .Where(x => x.AccountId == accountId.Value)
             .OrderBy(x => x.User.Nombre)
             .ThenBy(x => x.User.Apellido)
-            .Select(x => new AccountUserListItemDto(
+            .Select(x => new
+            {
                 x.UserId,
-                $"{x.User.Nombre} {x.User.Apellido}".Trim(),
-                x.User.Email!,
+                DisplayName = $"{x.User.Nombre} {x.User.Apellido}".Trim(),
+                Email = x.User.Email!,
                 x.IsActive,
                 x.Role,
+                x.AllowedModules,
                 x.User.LastLoginAtUtc,
-                x.InvitedAtUtc))
+                x.InvitedAtUtc
+            })
             .ToListAsync(ct);
 
-        return AppResult<List<AccountUserListItemDto>>.Ok(users);
+        return AppResult<List<AccountUserListItemDto>>.Ok(users
+            .Select(x => new AccountUserListItemDto(
+                x.UserId,
+                x.DisplayName,
+                x.Email,
+                x.IsActive,
+                x.Role,
+                SaasPermissionMap.GetEffectiveModules(x.Role, false, false, SaasPermissionMap.ParseAssignedModules(x.AllowedModules)).ToList(),
+                x.LastLoginAtUtc,
+                x.InvitedAtUtc))
+            .ToList());
     }
 }
 
@@ -165,6 +182,10 @@ public sealed class UpsertAccountUserCommandValidator : AbstractValidator<Upsert
         RuleFor(x => x.Nombre).NotEmpty().MaximumLength(80);
         RuleFor(x => x.Apellido).NotEmpty().MaximumLength(80);
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(180);
+        RuleFor(x => x.AllowedModules)
+            .Must(x => x is { Count: > 0 })
+            .When(x => x.Role == InternalUserRole.Employee)
+            .WithMessage("Debés asignar al menos un módulo al empleado.");
         RuleFor(x => x.Password)
             .NotEmpty().MinimumLength(8)
             .When(x => string.IsNullOrWhiteSpace(x.UserId));
@@ -181,6 +202,10 @@ public sealed class UpsertAccountUserCommandHandler(IAppDbContext db, IUserAcces
         if (!await access.HasModuleAccessAsync(accountId.Value, SaasModule.Users, ct))
             return AppResult<string>.Fail("forbidden", "No tenés permisos para administrar usuarios.");
 
+        var allowedModules = request.Role == InternalUserRole.Owner
+            ? SaasPermissionMap.GetTenantModules()
+            : SaasPermissionMap.NormalizeAssignedModules(request.AllowedModules);
+
         if (request.UserId is null)
         {
             var validate = await planService.ValidateUserCreationAsync(accountId.Value, ct);
@@ -195,6 +220,7 @@ public sealed class UpsertAccountUserCommandHandler(IAppDbContext db, IUserAcces
                 AccountId = accountId.Value,
                 UserId = create.UserId,
                 Role = request.Role,
+                AllowedModules = SaasPermissionMap.SerializeAssignedModules(allowedModules),
                 IsActive = request.IsActive,
                 CanManageConfiguration = request.Role is InternalUserRole.Owner,
                 InvitedAtUtc = DateTime.UtcNow
@@ -208,6 +234,7 @@ public sealed class UpsertAccountUserCommandHandler(IAppDbContext db, IUserAcces
         if (membership is null) return AppResult<string>.Fail("not_found", "Usuario no encontrado.");
 
         membership.Role = request.Role;
+        membership.AllowedModules = SaasPermissionMap.SerializeAssignedModules(allowedModules);
         membership.IsActive = request.IsActive;
         membership.CanManageConfiguration = request.Role is InternalUserRole.Owner;
         membership.User.Nombre = request.Nombre.Trim();

@@ -34,6 +34,18 @@ public class SaasCoreTests
     }
 
     [Fact]
+    public void SaasPermissionMap_Employee_UsesAssignedModules_WhenProvided()
+    {
+        var plan = new SaasPlanDefinition();
+        var assignedModules = new[] { SaasModule.Users, SaasModule.Products };
+
+        Assert.True(SaasPermissionMap.HasAccess(InternalUserRole.Employee, plan, SaasModule.Users, false, false, assignedModules));
+        Assert.True(SaasPermissionMap.HasAccess(InternalUserRole.Employee, plan, SaasModule.Products, false, false, assignedModules));
+        Assert.False(SaasPermissionMap.HasAccess(InternalUserRole.Employee, plan, SaasModule.Configuration, false, false, assignedModules));
+        Assert.False(SaasPermissionMap.HasAccess(InternalUserRole.Employee, plan, SaasModule.PlatformTenants, false, false, assignedModules));
+    }
+
+    [Fact]
     public void GetBranchesQueryValidator_RejectsInvalidPaging()
     {
         var validator = new GetBranchesQueryValidator();

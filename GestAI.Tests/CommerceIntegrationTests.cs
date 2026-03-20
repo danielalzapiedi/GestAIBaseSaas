@@ -225,6 +225,46 @@ public sealed class CommerceIntegrationTests
         Assert.Equal("forbidden", result.ErrorCode);
     }
 
+    [Fact]
+    public async Task GetCurrentUserAccess_Employee_UsesAssignedModules()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-permissions@test");
+
+        var employee = new User
+        {
+            Id = "employee-permissions",
+            UserName = "employee-permissions@test",
+            Email = "employee-permissions@test",
+            Nombre = "Employee",
+            Apellido = "Permissions",
+            DefaultAccountId = fixture.Account.Id,
+            IsActive = true
+        };
+        db.Users.Add(employee);
+        db.AccountUsers.Add(new AccountUser
+        {
+            AccountId = fixture.Account.Id,
+            UserId = employee.Id,
+            Role = InternalUserRole.Employee,
+            AllowedModules = "Users,Products",
+            IsActive = true
+        });
+        await db.SaveChangesAsync();
+
+        var current = new TestCurrentUser(employee.Id);
+        var access = new UserAccessService(db, current);
+        var handler = new GetCurrentUserAccessQueryHandler(db, current, access);
+
+        var result = await handler.Handle(new GetCurrentUserAccessQuery(), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Contains(result.Data!.Modules, x => x.Module == SaasModule.Users && x.Allowed);
+        Assert.Contains(result.Data!.Modules, x => x.Module == SaasModule.Products && x.Allowed);
+        Assert.Contains(result.Data!.Modules, x => x.Module == SaasModule.Configuration && !x.Allowed);
+        Assert.Contains(result.Data!.Modules, x => x.Module == SaasModule.PlatformTenants && !x.Allowed);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

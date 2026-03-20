@@ -10,6 +10,7 @@ public sealed class AccountUser : Entity
     public string UserId { get; set; } = null!;
     public User User { get; set; } = null!;
     public InternalUserRole Role { get; set; } = InternalUserRole.Employee;
+    public string? AllowedModules { get; set; }
     public bool CanManageConfiguration { get; set; } = false;
     public bool IsActive { get; set; } = true;
     public DateTime InvitedAtUtc { get; set; } = DateTime.UtcNow;

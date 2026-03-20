@@ -5,26 +5,21 @@ namespace GestAI.Application.Saas;
 
 public static class SaasPermissionMap
 {
-    public static bool HasAccess(InternalUserRole? role, SaasPlanDefinition? plan, SaasModule module, bool isOwner, bool isPlatformAdmin = false)
+    private static readonly SaasModule[] DefaultEmployeeModules =
     {
-        if (isPlatformAdmin) return module == SaasModule.PlatformTenants;
-        if (isOwner) return module is not SaasModule.PlatformTenants && IsEnabledByPlan(plan, module);
-        if (role is null) return false;
+        SaasModule.Dashboard,
+        SaasModule.Branches,
+        SaasModule.Warehouses,
+        SaasModule.Categories,
+        SaasModule.Products,
+        SaasModule.Customers,
+        SaasModule.Suppliers
+    };
 
-        var byRole = role.Value switch
-        {
-            InternalUserRole.Owner => module is not SaasModule.PlatformTenants,
-            InternalUserRole.Employee => module is SaasModule.Dashboard
-                or SaasModule.Branches
-                or SaasModule.Warehouses
-                or SaasModule.Categories
-                or SaasModule.Products
-                or SaasModule.Customers
-                or SaasModule.Suppliers,
-            _ => false
-        };
-
-        return byRole && IsEnabledByPlan(plan, module);
+    public static bool HasAccess(InternalUserRole? role, SaasPlanDefinition? plan, SaasModule module, bool isOwner, bool isPlatformAdmin = false, IReadOnlyCollection<SaasModule>? assignedModules = null)
+    {
+        var modules = GetEffectiveModules(role, isOwner, isPlatformAdmin, assignedModules);
+        return modules.Contains(module) && IsEnabledByPlan(plan, module);
     }
 
     public static bool IsEnabledByPlan(SaasPlanDefinition? plan, SaasModule module)
@@ -32,5 +27,39 @@ public static class SaasPermissionMap
         if (module == SaasModule.PlatformTenants) return true;
         if (plan is null) return false;
         return true;
+    }
+
+    public static IReadOnlyCollection<SaasModule> GetEffectiveModules(InternalUserRole? role, bool isOwner, bool isPlatformAdmin = false, IReadOnlyCollection<SaasModule>? assignedModules = null)
+    {
+        if (isPlatformAdmin) return new[] { SaasModule.PlatformTenants };
+        if (isOwner || role == InternalUserRole.Owner) return GetTenantModules();
+        if (role != InternalUserRole.Employee) return Array.Empty<SaasModule>();
+
+        var normalizedAssigned = NormalizeAssignedModules(assignedModules);
+        return normalizedAssigned.Count > 0 ? normalizedAssigned : DefaultEmployeeModules;
+    }
+
+    public static IReadOnlyCollection<SaasModule> GetTenantModules()
+        => Enum.GetValues<SaasModule>().Where(x => x != SaasModule.PlatformTenants).ToArray();
+
+    public static IReadOnlyCollection<SaasModule> NormalizeAssignedModules(IEnumerable<SaasModule>? modules)
+        => modules?
+            .Where(x => x != SaasModule.PlatformTenants)
+            .Distinct()
+            .OrderBy(x => (int)x)
+            .ToArray()
+           ?? Array.Empty<SaasModule>();
+
+    public static IReadOnlyCollection<SaasModule> ParseAssignedModules(string? modules)
+        => NormalizeAssignedModules((modules ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => Enum.TryParse<SaasModule>(x, out var module) ? module : (SaasModule?)null)
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value));
+
+    public static string? SerializeAssignedModules(IEnumerable<SaasModule>? modules)
+    {
+        var normalized = NormalizeAssignedModules(modules);
+        return normalized.Count == 0 ? null : string.Join(',', normalized);
     }
 }

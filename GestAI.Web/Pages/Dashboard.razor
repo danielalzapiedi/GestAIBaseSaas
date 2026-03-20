@@ -1,56 +1,89 @@
 @page "/dashboard"
 @inject ApiClient Api
+@inject GestAI.Web.Service.AppState AppState
 @using GestAI.Web.Dtos
 
 <PageTitle>Dashboard</PageTitle>
 
-@if (_summary is null)
+@if (!_loaded)
 {
     <div class="card"><div class="card-body">Cargando dashboard...</div></div>
+}
+else if (!HasOperationalModules)
+{
+    <section class="page-hero">
+        <div>
+            <div class="page-hero-title">Dashboard comercial</div>
+            <div class="page-hero-subtitle">Todavía no hay módulos operativos habilitados para mostrar indicadores del negocio.</div>
+        </div>
+    </section>
+
+    <EmptyState Title="Sin información operativa disponible"
+                Description="Cuando el tenant tenga módulos como ventas, presupuestos, clientes o productos, este tablero va a mostrar métricas del comercio y accesos rápidos de trabajo."
+                Icon="bi-speedometer2" />
 }
 else
 {
     <section class="page-hero">
         <div>
-            <div class="page-hero-title">Dashboard</div>
-            <div class="page-hero-subtitle">Una vista clara del estado de tu cuenta, la ocupación del plan y la capacidad operativa disponible para seguir creciendo.</div>
+            <div class="page-hero-title">Dashboard comercial</div>
+            <div class="page-hero-subtitle">Seguimiento rápido de la operación del comercio: ventas, presupuestos, clientes, stock y próximos focos de acción.</div>
         </div>
         <div class="page-hero-meta">
-            <span class="page-hero-chip"><i class="bi bi-stars"></i> @_summary.PlanName</span>
-            <StatusBadge Text="@_summary.PlanStatus" />
-            <span class="page-hero-chip"><i class="bi bi-calendar-event"></i> Desde @_summary.StartedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</span>
+            <span class="page-hero-chip"><i class="bi bi-shop-window"></i> @BusinessName</span>
+            <span class="page-hero-chip"><i class="bi bi-exclamation-triangle"></i> @TotalAttentionItems focos de atención</span>
+            @if (CanAccess(SaasModule.Products))
+            {
+                <span class="page-hero-chip"><i class="bi bi-boxes"></i> @LowStockCount alertas de stock</span>
+            }
+            @if (CanAccess(SaasModule.Sales))
+            {
+                <span class="page-hero-chip"><i class="bi bi-receipt-cutoff"></i> @DraftSalesCount borradores de venta</span>
+            }
         </div>
     </section>
 
     <div class="row g-3 ui-summary-grid">
-        <div class="col-md-6 col-xl-3">
-            <div class="card ui-stat-card"><div class="card-body">
-                <div class="ui-stat-label">Cuenta</div>
-                <div class="ui-stat-value">@_summary.Name</div>
-                <div class="ui-stat-foot">@(_summary.IsActive ? "Cuenta operativa y habilitada para el tenant." : "Cuenta con revisión pendiente o sin activación.")</div>
-            </div></div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="card ui-stat-card"><div class="card-body">
-                <div class="ui-stat-label">Plan actual</div>
-                <div class="ui-stat-value">@_summary.PlanName</div>
-                <div class="ui-stat-foot">Código @(_summary.PlanCode) · Estado @(_summary.PlanStatus).</div>
-            </div></div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="card ui-stat-card"><div class="card-body">
-                <div class="ui-stat-label">Usuarios</div>
-                <div class="ui-stat-value">@_summary.CurrentUsers / @_summary.MaxUsers</div>
-                <div class="ui-stat-foot">@UsersUsage% de capacidad utilizada.</div>
-            </div></div>
-        </div>
-        <div class="col-md-6 col-xl-3">
-            <div class="card ui-stat-card"><div class="card-body">
-                <div class="ui-stat-label">Entidades operativas</div>
-                <div class="ui-stat-value">@_summary.CurrentUnits / @_summary.MaxUnits</div>
-                <div class="ui-stat-foot">@UnitsUsage% de ocupación sobre el plan.</div>
-            </div></div>
-        </div>
+        @if (CanAccess(SaasModule.Sales))
+        {
+            <div class="col-md-6 col-xl-3">
+                <div class="card ui-stat-card"><div class="card-body">
+                    <div class="ui-stat-label">Ventas registradas</div>
+                    <div class="ui-stat-value">@(_sales?.TotalCount ?? 0)</div>
+                    <div class="ui-stat-foot">@TodaySalesCount hoy · @RecentSalesAmount.ToString("C") en ventas recientes.</div>
+                </div></div>
+            </div>
+        }
+        @if (CanAccess(SaasModule.Quotes))
+        {
+            <div class="col-md-6 col-xl-3">
+                <div class="card ui-stat-card"><div class="card-body">
+                    <div class="ui-stat-label">Presupuestos</div>
+                    <div class="ui-stat-value">@(_quotes?.TotalCount ?? 0)</div>
+                    <div class="ui-stat-foot">@OpenQuotesCount abiertos · @ConvertibleQuotesCount listos para convertir en la muestra reciente.</div>
+                </div></div>
+            </div>
+        }
+        @if (CanAccess(SaasModule.Customers))
+        {
+            <div class="col-md-6 col-xl-3">
+                <div class="card ui-stat-card"><div class="card-body">
+                    <div class="ui-stat-label">Clientes activos</div>
+                    <div class="ui-stat-value">@(_customers?.TotalCount ?? 0)</div>
+                    <div class="ui-stat-foot">Base comercial disponible para ventas y presupuestos.</div>
+                </div></div>
+            </div>
+        }
+        @if (CanAccess(SaasModule.Products))
+        {
+            <div class="col-md-6 col-xl-3">
+                <div class="card ui-stat-card"><div class="card-body">
+                    <div class="ui-stat-label">Catálogo / stock</div>
+                    <div class="ui-stat-value">@(_products?.TotalCount ?? 0)</div>
+                    <div class="ui-stat-foot">@DistinctSkus con stock visible · @LowStockCount bajo mínimo.</div>
+                </div></div>
+            </div>
+        }
     </div>
 
     <div class="row g-3 mt-1">
@@ -59,46 +92,24 @@ else
                 <div class="card-body">
                     <div class="ui-card-header">
                         <div>
-                            <div class="ui-card-eyebrow">Capacidad y ocupación</div>
-                            <h5 class="ui-card-title">Salud operativa del tenant</h5>
-                            <div class="ui-card-subtitle">Lectura rápida de la ocupación real frente a los límites del plan.</div>
+                            <div class="ui-card-eyebrow">Radar operativo</div>
+                            <h5 class="ui-card-title">Qué conviene mirar primero</h5>
+                            <div class="ui-card-subtitle">Priorización simple para empezar el día de trabajo sin entrar módulo por módulo.</div>
                         </div>
-                        <StatusBadge Text="@HealthLabel" CssClass="@HealthCssClass" />
+                        <StatusBadge Text="@AttentionBadgeText" CssClass="@AttentionBadgeCss" />
                     </div>
 
-                    <div class="ui-meter-list">
-                        <div class="ui-meter-row">
-                            <div class="ui-meter-head">
+                    <div class="ui-list-stack">
+                        @foreach (var item in AttentionItems)
+                        {
+                            <div class="ui-check-card">
+                                <i class="bi @item.Icon text-primary"></i>
                                 <div>
-                                    <div class="ui-meter-title">Espacios / tenants</div>
-                                    <div class="ui-table-meta">@_summary.CurrentProperties de @_summary.MaxProperties en uso</div>
+                                    <strong>@item.Title</strong>
+                                    <div class="ui-table-meta">@item.Description</div>
                                 </div>
-                                <div class="ui-meter-value">@PropertiesUsage%</div>
                             </div>
-                            <div class="ui-meter-bar"><div class="ui-meter-fill" style="width: @( $"{PropertiesUsage}%" );"></div></div>
-                        </div>
-
-                        <div class="ui-meter-row">
-                            <div class="ui-meter-head">
-                                <div>
-                                    <div class="ui-meter-title">Entidades operativas</div>
-                                    <div class="ui-table-meta">@_summary.CurrentUnits de @_summary.MaxUnits configuradas</div>
-                                </div>
-                                <div class="ui-meter-value">@UnitsUsage%</div>
-                            </div>
-                            <div class="ui-meter-bar"><div class="ui-meter-fill" style="width: @( $"{UnitsUsage}%" );"></div></div>
-                        </div>
-
-                        <div class="ui-meter-row">
-                            <div class="ui-meter-head">
-                                <div>
-                                    <div class="ui-meter-title">Usuarios del tenant</div>
-                                    <div class="ui-table-meta">@_summary.CurrentUsers de @_summary.MaxUsers con acceso</div>
-                                </div>
-                                <div class="ui-meter-value">@UsersUsage%</div>
-                            </div>
-                            <div class="ui-meter-bar"><div class="ui-meter-fill" style="width: @( $"{UsersUsage}%" );"></div></div>
-                        </div>
+                        }
                     </div>
                 </div>
             </div>
@@ -109,34 +120,23 @@ else
                 <div class="card-body">
                     <div class="ui-card-header">
                         <div>
-                            <div class="ui-card-eyebrow">Resumen ejecutivo</div>
-                            <h5 class="ui-card-title">Estado de la cuenta</h5>
-                            <div class="ui-card-subtitle">Datos de referencia para seguimiento operativo y comercial.</div>
+                            <div class="ui-card-eyebrow">Accesos rápidos</div>
+                            <h5 class="ui-card-title">Entrá directo a trabajar</h5>
+                            <div class="ui-card-subtitle">Los atajos principales del comercio, sin pasar por menús largos.</div>
                         </div>
                     </div>
 
                     <div class="ui-list-stack">
-                        <div class="ui-check-card">
-                            <i class="bi bi-building text-primary"></i>
-                            <div>
-                                <strong>Cuenta creada</strong>
-                                <div class="ui-table-meta">@_summary.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</div>
-                            </div>
-                        </div>
-                        <div class="ui-check-card">
-                            <i class="bi bi-shield-check text-primary"></i>
-                            <div>
-                                <strong>Estado operativo</strong>
-                                <div class="ui-table-meta">@(_summary.IsActive ? "La cuenta está activa y lista para operar." : "La cuenta requiere activación o revisión.")</div>
-                            </div>
-                        </div>
-                        <div class="ui-check-card">
-                            <i class="bi bi-rocket-takeoff text-primary"></i>
-                            <div>
-                                <strong>Siguiente foco</strong>
-                                <div class="ui-table-meta">@NextStepLabel</div>
-                            </div>
-                        </div>
+                        @foreach (var action in QuickActions)
+                        {
+                            <a class="ui-check-card text-decoration-none text-reset" href="@action.Href">
+                                <i class="bi @action.Icon text-primary"></i>
+                                <div>
+                                    <strong>@action.Title</strong>
+                                    <div class="ui-table-meta">@action.Description</div>
+                                </div>
+                            </a>
+                        }
                     </div>
                 </div>
             </div>
@@ -144,42 +144,99 @@ else
     </div>
 
     <div class="row g-3 mt-1">
-        <div class="col-lg-6">
-            <div class="card h-100">
+        <div class="col-xl-7">
+            <div class="card h-100 ui-data-card">
                 <div class="card-body">
                     <div class="ui-card-header">
                         <div>
-                            <div class="ui-card-eyebrow">Funciones del plan</div>
-                            <h5 class="ui-card-title">Cobertura incluida</h5>
-                            <div class="ui-card-subtitle">Qué capacidades ya están habilitadas en tu suscripción actual.</div>
+                            <div class="ui-card-eyebrow">Actividad comercial</div>
+                            <h5 class="ui-card-title">Últimos movimientos de ventas y presupuestos</h5>
+                            <div class="ui-card-subtitle">Una sola lista para entender qué se emitió recién y dónde conviene seguir.</div>
                         </div>
                     </div>
 
-                    <div class="ui-list-stack">
-                        <div class="ui-check-card"><i class="bi bi-bar-chart-line text-primary"></i><div><strong>Reportes</strong><div class="ui-table-meta">@(_summary.IncludesReports ? "Incluidos en el plan actual." : "No incluidos en esta suscripción.")</div></div></div>
-                        <div class="ui-check-card"><i class="bi bi-gear text-primary"></i><div><strong>Operaciones</strong><div class="ui-table-meta">@(_summary.IncludesOperations ? "Módulos operativos habilitados." : "La capa operativa aún no está incluida.")</div></div></div>
-                        <div class="ui-check-card"><i class="bi bi-people text-primary"></i><div><strong>Capacidad de usuarios</strong><div class="ui-table-meta">Disponible para @_summary.MaxUsers usuarios del tenant.</div></div></div>
-                    </div>
+                    @if (RecentActivity.Count == 0)
+                    {
+                        <EmptyState Title="Sin actividad reciente"
+                                    Description="Todavía no hay ventas o presupuestos recientes para mostrar en el dashboard."
+                                    Icon="bi-clock-history" />
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped ui-compact-table">
+                                <thead><tr><th>Tipo</th><th>Comprobante</th><th>Cliente</th><th>Fecha</th><th>Importe</th><th>Estado</th><th></th></tr></thead>
+                                <tbody>
+                                @foreach (var item in RecentActivity)
+                                {
+                                    <tr>
+                                        <td><StatusBadge Text="@item.Type" CssClass="@item.TypeCssClass" /></td>
+                                        <td><div class="ui-table-stack"><span class="fw-semibold">@item.Number</span><span class="ui-table-meta">@item.SecondaryText</span></div></td>
+                                        <td>@item.CustomerName</td>
+                                        <td>@item.IssuedAtLocal.ToString("dd/MM/yyyy")</td>
+                                        <td class="fw-semibold">@item.Total.ToString("C")</td>
+                                        <td><StatusBadge Text="@item.StatusLabel" CssClass="@item.StatusCssClass" /></td>
+                                        <td><a class="btn btn-sm btn-outline-primary" href="@item.Href">Abrir</a></td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-6">
-            <div class="card h-100">
+        <div class="col-xl-5">
+            <div class="card h-100 ui-data-card">
                 <div class="card-body">
                     <div class="ui-card-header">
                         <div>
-                            <div class="ui-card-eyebrow">Lectura rápida</div>
-                            <h5 class="ui-card-title">Próximos pasos recomendados</h5>
-                            <div class="ui-card-subtitle">Sugerencias simples para seguir consolidando la cuenta.</div>
+                            <div class="ui-card-eyebrow">Stock e inventario</div>
+                            <h5 class="ui-card-title">Señales del inventario</h5>
+                            <div class="ui-card-subtitle">Alertas y movimientos recientes para no perder contexto operativo.</div>
                         </div>
                     </div>
 
-                    <div class="ui-list-stack">
-                        <div class="ui-check-card"><i class="bi bi-person-plus text-primary"></i><div><strong>Revisar usuarios</strong><div class="ui-table-meta">@(_summary.CurrentUsers < _summary.MaxUsers ? "Todavía hay margen para sumar usuarios internos." : "La capacidad de usuarios está al límite del plan.")</div></div></div>
-                        <div class="ui-check-card"><i class="bi bi-diagram-3 text-primary"></i><div><strong>Expandir operación</strong><div class="ui-table-meta">@(_summary.CurrentUnits < _summary.MaxUnits ? "Hay espacio para nuevas unidades operativas." : "La cuenta ya utiliza toda la capacidad operativa disponible.")</div></div></div>
-                        <div class="ui-check-card"><i class="bi bi-stars text-primary"></i><div><strong>Evaluar plan</strong><div class="ui-table-meta">@UpgradeHint</div></div></div>
-                    </div>
+                    @if (!CanAccess(SaasModule.Products))
+                    {
+                        <EmptyState Title="Sin módulo de inventario"
+                                    Description="Cuando el usuario tenga acceso a productos/inventario, acá se mostrarán alertas de stock y movimientos recientes."
+                                    Icon="bi-boxes" />
+                    }
+                    else
+                    {
+                        <div class="ui-list-stack mb-3">
+                            <div class="ui-check-card"><i class="bi bi-boxes text-primary"></i><div><strong>@DistinctSkus SKUs con stock</strong><div class="ui-table-meta">@WarehousesWithStock depósitos con disponibilidad visible.</div></div></div>
+                            <div class="ui-check-card"><i class="bi bi-exclamation-circle text-primary"></i><div><strong>@LowStockCount productos bajo mínimo</strong><div class="ui-table-meta">@LowStockSummary</div></div></div>
+                        </div>
+
+                        @if (RecentMovements.Count == 0)
+                        {
+                            <EmptyState Title="Sin movimientos recientes"
+                                        Description="Todavía no hay movimientos de stock auditados para mostrar en el tablero."
+                                        Icon="bi-journal-arrow-up" />
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped ui-compact-table">
+                                    <thead><tr><th>Fecha</th><th>SKU</th><th>Tipo</th><th>Cantidad</th></tr></thead>
+                                    <tbody>
+                                    @foreach (var movement in RecentMovements)
+                                    {
+                                        <tr>
+                                            <td>@movement.OccurredAtUtc.ToLocalTime().ToString("dd/MM HH:mm")</td>
+                                            <td><div class="ui-table-stack"><span class="fw-semibold">@movement.SkuName</span><span class="ui-table-meta">@movement.InternalCode</span></div></td>
+                                            <td><StatusBadge Text="@MovementLabel(movement.MovementType)" /></td>
+                                            <td class="fw-semibold @(movement.QuantityDelta >= 0 ? "text-success" : "text-danger")">@movement.QuantityDelta</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
                 </div>
             </div>
         </div>
@@ -187,51 +244,226 @@ else
 }
 
 @code {
-    private AccountSummaryDto? _summary;
+    private AccountSummaryDto? _account;
+    private CurrentUserAccessDto? _access;
+    private PagedResult<SaleListItemDto>? _sales;
+    private PagedResult<QuoteListItemDto>? _quotes;
+    private PagedResult<CustomerListItemDto>? _customers;
+    private PagedResult<ProductListItemDto>? _products;
+    private InventoryOverviewDto? _inventory;
+    private List<StockMovementListItemDto> _movements = new();
+    private bool _loaded;
 
-    private int PropertiesUsage => Percentage(_summary?.CurrentProperties ?? 0, _summary?.MaxProperties ?? 0);
-    private int UnitsUsage => Percentage(_summary?.CurrentUnits ?? 0, _summary?.MaxUnits ?? 0);
-    private int UsersUsage => Percentage(_summary?.CurrentUsers ?? 0, _summary?.MaxUsers ?? 0);
+    private string BusinessName => string.IsNullOrWhiteSpace(_account?.Name) ? "Tu comercio" : _account.Name;
+    private bool HasOperationalModules => CanAccess(SaasModule.Sales) || CanAccess(SaasModule.Quotes) || CanAccess(SaasModule.Customers) || CanAccess(SaasModule.Products);
+    private int TodaySalesCount => _sales?.Items.Count(x => x.IssuedAtUtc.ToLocalTime().Date == DateTime.Now.Date) ?? 0;
+    private decimal RecentSalesAmount => _sales?.Items.Take(12).Sum(x => x.Total) ?? 0m;
+    private int DraftSalesCount => _sales?.Items.Count(x => x.Status == SaleStatus.Draft) ?? 0;
+    private int ConvertibleQuotesCount => _quotes?.Items.Count(x => x.CanConvertToSale) ?? 0;
+    private int OpenQuotesCount => _quotes?.Items.Count(x => x.Status is QuoteStatus.Draft or QuoteStatus.Sent or QuoteStatus.Approved) ?? 0;
+    private int LowStockCount => _inventory?.LowStockCount ?? 0;
+    private int DistinctSkus => _inventory?.DistinctSkus ?? 0;
+    private int WarehousesWithStock => _inventory?.WarehousesWithStock ?? 0;
+    private int TotalAttentionItems => AttentionItems.Count;
+    private string LowStockSummary => LowStockCount == 0 ? "No hay alertas de stock crítico en la lectura actual." : "Conviene revisar reposición y movimientos antes de impactar nuevas ventas.";
 
-    private string HealthLabel => MaxUsage switch
+    private string AttentionBadgeText => TotalAttentionItems switch
     {
-        >= 90 => "Capacidad alta",
-        >= 70 => "Seguimiento requerido",
-        _ => "Operación estable"
+        0 => "Operación estable",
+        <= 2 => "Seguimiento simple",
+        _ => "Atención requerida"
     };
 
-    private string HealthCssClass => MaxUsage switch
+    private string AttentionBadgeCss => TotalAttentionItems switch
     {
-        >= 90 => "ui-badge ui-badge-warning",
-        >= 70 => "ui-badge ui-badge-info",
-        _ => "ui-badge ui-badge-success"
+        0 => "ui-badge ui-badge-success",
+        <= 2 => "ui-badge ui-badge-info",
+        _ => "ui-badge ui-badge-warning"
     };
 
-    private int MaxUsage => Math.Max(PropertiesUsage, Math.Max(UnitsUsage, UsersUsage));
-
-    private string NextStepLabel => MaxUsage switch
+    private List<AttentionItem> AttentionItems
     {
-        >= 90 => "Conviene revisar ampliación de plan para evitar cuellos de botella operativos.",
-        >= 70 => "Vale la pena monitorear crecimiento de usuarios y unidades antes del próximo release.",
-        _ => "La cuenta tiene margen sano para seguir incorporando operación y usuarios."
-    };
+        get
+        {
+            var items = new List<AttentionItem>();
 
-    private string UpgradeHint => _summary is null
-        ? string.Empty
-        : MaxUsage >= 90
-            ? "El uso actual sugiere evaluar una ampliación del plan para sostener crecimiento."
-            : "Todavía hay holgura operativa; el foco puede seguir en adopción y orden interno.";
+            if (CanAccess(SaasModule.Sales))
+            {
+                items.Add(DraftSalesCount > 0
+                    ? new AttentionItem("bi-receipt-cutoff", "Ventas pendientes de cierre", $"Hay {DraftSalesCount} ventas en borrador que conviene revisar o confirmar.")
+                    : new AttentionItem("bi-check2-circle", "Ventas al día", "No se detectan ventas en borrador dentro de la lectura reciente."));
+            }
+
+            if (CanAccess(SaasModule.Quotes))
+            {
+                items.Add(ConvertibleQuotesCount > 0
+                    ? new AttentionItem("bi-arrow-left-right", "Presupuestos listos para convertir", $"Hay {ConvertibleQuotesCount} presupuestos recientes que ya podrían pasar a venta.")
+                    : new AttentionItem("bi-file-earmark-check", "Presupuestos controlados", "No hay presupuestos convertibles recientes pendientes de acción."));
+            }
+
+            if (CanAccess(SaasModule.Products))
+            {
+                items.Add(LowStockCount > 0
+                    ? new AttentionItem("bi-box-seam", "Stock bajo mínimo", $"Se detectan {LowStockCount} SKU con alerta de stock en la vista actual.")
+                    : new AttentionItem("bi-boxes", "Inventario sin alertas críticas", "No hay señales de bajo stock en la lectura consolidada actual."));
+            }
+
+            if (CanAccess(SaasModule.Customers) && (_customers?.TotalCount ?? 0) == 0)
+            {
+                items.Add(new AttentionItem("bi-person-vcard", "Base comercial vacía", "Todavía no hay clientes cargados; conviene completar el padrón para agilizar ventas y presupuestos."));
+            }
+
+            if (items.Count == 0)
+                items.Add(new AttentionItem("bi-speedometer2", "Dashboard listo", "El tablero está preparado para mostrar foco operativo a medida que se use el sistema."));
+
+            return items;
+        }
+    }
+
+    private List<QuickActionItem> QuickActions
+    {
+        get
+        {
+            var actions = new List<QuickActionItem>();
+
+            if (CanAccess(SaasModule.Sales))
+                actions.Add(new QuickActionItem("bi-plus-circle", "Nueva venta", "Registrar una venta manual desde el circuito comercial.", "/sales"));
+            if (CanAccess(SaasModule.Sales))
+                actions.Add(new QuickActionItem("bi-lightning-charge", "Carga rápida", "Entrar al flujo más corto para emitir una venta operativa.", "/sales/quick"));
+            if (CanAccess(SaasModule.Quotes))
+                actions.Add(new QuickActionItem("bi-file-earmark-text", "Presupuestos", "Ver emitidos, editar o convertir presupuestos a venta.", "/quotes"));
+            if (CanAccess(SaasModule.Products))
+                actions.Add(new QuickActionItem("bi-boxes", "Inventario", "Revisar stock, alertas y movimientos de mercadería.", "/inventory"));
+            if (CanAccess(SaasModule.Customers))
+                actions.Add(new QuickActionItem("bi-people", "Clientes", "Actualizar o consultar la base comercial del negocio.", "/customers"));
+            if (CanAccess(SaasModule.Products))
+                actions.Add(new QuickActionItem("bi-box", "Productos", "Agregar o mantener el catálogo operativo.", "/products"));
+
+            return actions;
+        }
+    }
+
+    private List<ActivityItem> RecentActivity =>
+        (_sales?.Items.Select(x => new ActivityItem(
+                "Venta",
+                "ui-badge ui-badge-primary",
+                x.Number,
+                x.SourceQuoteId.HasValue ? $"Origen {x.SourceQuoteNumber}" : "Carga manual",
+                x.CustomerName,
+                x.IssuedAtUtc.ToLocalTime(),
+                x.Total,
+                SaleStatusLabel(x.Status),
+                SaleStatusClass(x.Status),
+                $"/sales/{x.Id}"))
+            ?? Enumerable.Empty<ActivityItem>())
+        .Concat(_quotes?.Items.Select(x => new ActivityItem(
+                "Presupuesto",
+                "ui-badge ui-badge-neutral",
+                x.Number,
+                x.CanConvertToSale ? "Listo para convertir" : "Documento comercial",
+                x.CustomerName,
+                x.IssuedAtUtc.ToLocalTime(),
+                x.Total,
+                QuoteStatusLabel(x.Status),
+                QuoteStatusClass(x.Status),
+                $"/quotes/{x.Id}"))
+            ?? Enumerable.Empty<ActivityItem>())
+        .OrderByDescending(x => x.IssuedAtLocal)
+        .Take(8)
+        .ToList();
+
+    private List<StockMovementListItemDto> RecentMovements => _movements.Take(6).ToList();
 
     protected override async Task OnInitializedAsync()
     {
-        _summary = (await Api.GetAsync<AppResult<AccountSummaryDto>>("api/saas/account/summary"))?.Data;
+        await LoadAccessAsync();
+        await LoadDashboardAsync();
     }
 
-    private static int Percentage(int current, int total)
+    private async Task LoadAccessAsync()
     {
-        if (total <= 0)
-            return 0;
-
-        return Math.Clamp((int)Math.Round(current * 100d / total), 0, 100);
+        _access = (await Api.GetAsync<AppResult<CurrentUserAccessDto>>("api/saas/me/access"))?.Data;
+        if (_access is not null)
+            AppState.SetAccess(_access);
     }
+
+    private async Task LoadDashboardAsync()
+    {
+        _loaded = false;
+
+        _account = (await Api.GetAsync<AppResult<AccountSummaryDto>>("api/saas/account/summary"))?.Data;
+
+        if (CanAccess(SaasModule.Sales))
+            _sales = (await Api.GetAsync<AppResult<PagedResult<SaleListItemDto>>>("api/commerce/sales?page=1&pageSize=100"))?.Data;
+
+        if (CanAccess(SaasModule.Quotes))
+            _quotes = (await Api.GetAsync<AppResult<PagedResult<QuoteListItemDto>>>("api/commerce/quotes?page=1&pageSize=100"))?.Data;
+
+        if (CanAccess(SaasModule.Customers))
+            _customers = (await Api.GetAsync<AppResult<PagedResult<CustomerListItemDto>>>("api/commerce/customers?page=1&pageSize=1"))?.Data;
+
+        if (CanAccess(SaasModule.Products))
+        {
+            _products = (await Api.GetAsync<AppResult<PagedResult<ProductListItemDto>>>("api/commerce/products?page=1&pageSize=1"))?.Data;
+            _inventory = (await Api.GetAsync<AppResult<InventoryOverviewDto>>("api/commerce/inventory/stocks"))?.Data;
+            _movements = (await Api.GetAsync<AppResult<List<StockMovementListItemDto>>>("api/commerce/inventory/movements?take=6"))?.Data?.ToList() ?? new();
+        }
+
+        _loaded = true;
+    }
+
+    private bool CanAccess(SaasModule module)
+        => _access?.Modules.Any(x => x.Module == module && x.Allowed) == true || AppState.CanAccess(module);
+
+    private static string MovementLabel(StockMovementType type) => type switch
+    {
+        StockMovementType.Inbound => "Ingreso",
+        StockMovementType.Outbound => "Egreso",
+        StockMovementType.Adjustment => "Ajuste",
+        StockMovementType.TransferOut => "Transferencia",
+        StockMovementType.TransferIn => "Transferencia",
+        _ => type.ToString()
+    };
+
+    private static string SaleStatusLabel(SaleStatus status) => status switch
+    {
+        SaleStatus.Draft => "Borrador",
+        SaleStatus.Confirmed => "Confirmada",
+        SaleStatus.Completed => "Completada",
+        SaleStatus.Cancelled => "Cancelada",
+        _ => status.ToString()
+    };
+
+    private static string SaleStatusClass(SaleStatus status) => status switch
+    {
+        SaleStatus.Completed => "ui-badge ui-badge-success",
+        SaleStatus.Confirmed => "ui-badge ui-badge-primary",
+        SaleStatus.Cancelled => "ui-badge ui-badge-danger",
+        _ => "ui-badge ui-badge-neutral"
+    };
+
+    private static string QuoteStatusLabel(QuoteStatus status) => status switch
+    {
+        QuoteStatus.Draft => "Borrador",
+        QuoteStatus.Sent => "Enviado",
+        QuoteStatus.Approved => "Aprobado",
+        QuoteStatus.Rejected => "Rechazado",
+        QuoteStatus.Expired => "Vencido",
+        QuoteStatus.Converted => "Convertido",
+        _ => status.ToString()
+    };
+
+    private static string QuoteStatusClass(QuoteStatus status) => status switch
+    {
+        QuoteStatus.Approved => "ui-badge ui-badge-success",
+        QuoteStatus.Sent => "ui-badge ui-badge-primary",
+        QuoteStatus.Rejected => "ui-badge ui-badge-danger",
+        QuoteStatus.Expired => "ui-badge ui-badge-warning",
+        QuoteStatus.Converted => "ui-badge ui-badge-info",
+        _ => "ui-badge ui-badge-neutral"
+    };
+
+    private sealed record AttentionItem(string Icon, string Title, string Description);
+    private sealed record QuickActionItem(string Icon, string Title, string Description, string Href);
+    private sealed record ActivityItem(string Type, string TypeCssClass, string Number, string SecondaryText, string CustomerName, DateTime IssuedAtLocal, decimal Total, string StatusLabel, string StatusCssClass, string Href);
 }

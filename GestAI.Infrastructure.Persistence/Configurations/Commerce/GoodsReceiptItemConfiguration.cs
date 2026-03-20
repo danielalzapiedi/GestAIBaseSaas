@@ -20,7 +20,7 @@ public sealed class GoodsReceiptItemConfiguration : IEntityTypeConfiguration<Goo
         b.Property(x => x.RowVersion).IsRowVersion();
         b.HasIndex(x => new { x.GoodsReceiptId, x.SortOrder });
         b.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(x => x.GoodsReceipt).WithMany(x => x.Items).HasForeignKey(x => x.GoodsReceiptId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.GoodsReceipt).WithMany(x => x.Items).HasForeignKey(x => x.GoodsReceiptId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne(x => x.PurchaseDocumentItem).WithMany(x => x.ReceiptItems).HasForeignKey(x => x.PurchaseDocumentItemId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.ProductVariant).WithMany().HasForeignKey(x => x.ProductVariantId).OnDelete(DeleteBehavior.Restrict);

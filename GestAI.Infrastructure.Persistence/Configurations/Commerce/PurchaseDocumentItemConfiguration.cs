@@ -21,7 +21,7 @@ public sealed class PurchaseDocumentItemConfiguration : IEntityTypeConfiguration
         b.Property(x => x.RowVersion).IsRowVersion();
         b.HasIndex(x => new { x.PurchaseDocumentId, x.SortOrder });
         b.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(x => x.PurchaseDocument).WithMany(x => x.Items).HasForeignKey(x => x.PurchaseDocumentId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.PurchaseDocument).WithMany(x => x.Items).HasForeignKey(x => x.PurchaseDocumentId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.ProductVariant).WithMany().HasForeignKey(x => x.ProductVariantId).OnDelete(DeleteBehavior.Restrict);
     }

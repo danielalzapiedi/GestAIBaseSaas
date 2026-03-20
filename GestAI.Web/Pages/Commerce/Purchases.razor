@@ -99,7 +99,7 @@
                         <div class="col-md-6"><label class="form-label">Proveedor</label><select class="form-select" @bind="_form.SupplierId"><option value="0">Seleccionar proveedor</option>@foreach (var supplier in _seed?.Suppliers ?? Array.Empty<LookupDto>()){<option value="@supplier.Id">@supplier.Name</option>}</select></div>
                         <div class="col-md-3"><label class="form-label">Tipo</label><select class="form-select" @bind="_form.DocumentType">@foreach (var type in Enum.GetValues<PurchaseDocumentType>()){<option value="@type">@TypeLabel(type)</option>}</select></div>
                         <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_form.Status">@foreach (var status in Enum.GetValues<PurchaseDocumentStatus>().Where(x => x is PurchaseDocumentStatus.Draft or PurchaseDocumentStatus.Issued or PurchaseDocumentStatus.Cancelled)){<option value="@status">@StatusLabel(status)</option>}</select></div>
-                        <div class="col-md-4"><label class="form-label">Fecha</label><input type="date" class="form-control" @bind="IssuedAtLocalDate" /></div>
+                        <div class="col-md-4"><label class="form-label">Fecha</label><input type="date" class="form-control" value="@IssuedAtLocalDate" @onchange="OnIssuedAtDateChanged" /></div>
                         <div class="col-md-4"><label class="form-label">Comprobante proveedor</label><input class="form-control" @bind="_form.SupplierDocumentNumber" /></div>
                         <div class="col-md-4"><label class="form-label">Observaciones</label><input class="form-control" @bind="_form.Observations" /></div>
                     </div>
@@ -155,16 +155,15 @@
     private int PendingReceipts => _result?.Items.Count(x => x.Status is PurchaseDocumentStatus.Issued or PurchaseDocumentStatus.PartiallyReceived) ?? 0;
     private decimal ReceivedUnits => _result?.Items.Sum(x => x.ReceivedQuantity) ?? 0m;
     private IEnumerable<PurchaseSkuLookupDto> AllSkus => (_seed?.Products ?? Array.Empty<PurchaseSkuLookupDto>()).Concat(_seed?.Variants ?? Array.Empty<PurchaseSkuLookupDto>());
-    private string IssuedAtLocalDate
-    {
-        get => _form.IssuedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
-        set
-        {
-            if (DateTime.TryParse(value, out var parsed))
-                _form.IssuedAtUtc = DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
-        }
-    }
+    private string IssuedAtLocalDate => _form.IssuedAtUtc.ToLocalTime().ToString("yyyy-MM-dd");
     private decimal FormTotal => _form.Items.Sum(x => x.LineSubtotal);
+
+    private void OnIssuedAtDateChanged(ChangeEventArgs args)
+    {
+        var value = args.Value?.ToString();
+        if (DateTime.TryParse(value, out var parsed))
+            _form.IssuedAtUtc = DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
+    }
 
     protected override async Task OnInitializedAsync()
     {

@@ -143,7 +143,7 @@ else
                     <div class="ui-card-header"><div><div class="ui-card-eyebrow">Ingreso</div><h5 class="ui-card-title">Registrar mercadería</h5><div class="ui-card-subtitle">Seleccioná depósito destino y las cantidades efectivamente recibidas.</div></div></div>
                     <div class="row g-3 mb-3">
                         <div class="col-md-6"><label class="form-label">Depósito</label><select class="form-select" @bind="_receipt.WarehouseId"><option value="0">Seleccionar</option>@foreach (var warehouse in _seed?.Warehouses ?? Array.Empty<LookupDto>()){<option value="@warehouse.Id">@warehouse.Name</option>}</select></div>
-                        <div class="col-md-6"><label class="form-label">Fecha ingreso</label><input type="datetime-local" class="form-control" @bind="ReceiptLocalDate" /></div>
+                        <div class="col-md-6"><label class="form-label">Fecha ingreso</label><input type="datetime-local" class="form-control" value="@ReceiptLocalDate" @onchange="OnReceiptDateChanged" /></div>
                         <div class="col-12"><label class="form-label">Observaciones</label><input class="form-control" @bind="_receipt.Observations" /></div>
                     </div>
                     @foreach (var line in _receipt.Items)
@@ -171,14 +171,13 @@ else
     private GoodsReceiptCommand _receipt = new();
     private bool _showReceiptForm;
     private bool _loaded;
-    private string ReceiptLocalDate
+    private string ReceiptLocalDate => _receipt.ReceivedAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
+
+    private void OnReceiptDateChanged(ChangeEventArgs args)
     {
-        get => _receipt.ReceivedAtUtc.ToLocalTime().ToString("yyyy-MM-ddTHH:mm");
-        set
-        {
-            if (DateTime.TryParse(value, out var parsed))
-                _receipt.ReceivedAtUtc = DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
-        }
+        var value = args.Value?.ToString();
+        if (DateTime.TryParse(value, out var parsed))
+            _receipt.ReceivedAtUtc = DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
     }
 
     protected override async Task OnInitializedAsync()

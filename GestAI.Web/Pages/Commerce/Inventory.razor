@@ -133,7 +133,7 @@ else
                                 <div class="col-12"><label class="form-label">Depósito destino</label><select class="form-select" @bind="_movement.CounterpartWarehouseId"><option value="">Seleccionar</option>@foreach (var warehouse in _seed.Warehouses.Where(x => x.Id != _movement.WarehouseId)){<option value="@warehouse.Id">@warehouse.Name</option>}</select></div>
                             }
                             <div class="col-md-6"><label class="form-label">Cantidad</label><input class="form-control" type="number" step="0.01" @bind="_movement.Quantity" /></div>
-                            <div class="col-md-6"><label class="form-label">Fecha</label><input class="form-control" type="datetime-local" @bind="_movementDateLocal" /></div>
+                            <div class="col-md-6"><label class="form-label">Fecha</label><input class="form-control" type="datetime-local" @bind-value="_movementOccurredAtLocal" @bind-value:format="yyyy-MM-ddTHH:mm" /></div>
                             <div class="col-12"><label class="form-label">Motivo</label><input class="form-control" @bind="_movement.Reason" placeholder="Recepción, conteo, merma, traslado, etc." /></div>
                             <div class="col-12"><label class="form-label">Observación</label><textarea class="form-control ui-preview-textarea" @bind="_movement.Note"></textarea></div>
                         </div>
@@ -174,7 +174,7 @@ else
     private string _selectedSkuKey = string.Empty;
     private string _movementSkuKey = string.Empty;
     private string _message = "Los movimientos impactan stock consolidado y trazabilidad.";
-    private string _movementDateLocal = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+    private DateTime _movementOccurredAtLocal = DateTime.Now;
     private RecordStockMovementCommand _movement = new() { Quantity = 1, MovementType = StockMovementType.Inbound, Reason = "Ingreso operativo" };
 
     protected override async Task OnInitializedAsync()
@@ -209,7 +209,7 @@ else
         var (productId, variantId) = ParseSkuKey(_movementSkuKey);
         _movement.ProductId = productId;
         _movement.ProductVariantId = variantId;
-        _movement.OccurredAtUtc = DateTime.TryParse(_movementDateLocal, out var occurredAt) ? occurredAt : DateTime.Now;
+        _movement.OccurredAtUtc = DateTime.SpecifyKind(_movementOccurredAtLocal, DateTimeKind.Local).ToUniversalTime();
         var result = await Api.PostAsync<RecordStockMovementCommand, AppResult<int>>("api/commerce/inventory/movements", _movement);
         _message = result?.Success == true ? "Movimiento registrado correctamente." : result?.Message ?? "No se pudo registrar el movimiento.";
         if (result?.Success == true)
@@ -241,7 +241,7 @@ else
         if (string.IsNullOrWhiteSpace(value)) return (0, null);
         var parts = value.Split(':');
         var productId = int.Parse(parts[0]);
-        var variantId = parts.Length > 1 && int.TryParse(parts[1], out var parsedVariant) && parsedVariant > 0 ? parsedVariant : null;
+        int? variantId = parts.Length > 1 && int.TryParse(parts[1], out var parsedVariant) && parsedVariant > 0 ? parsedVariant : null;
         return (productId, variantId);
     }
 

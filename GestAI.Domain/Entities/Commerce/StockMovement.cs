@@ -1,4 +1,5 @@
 using GestAI.Domain.Common;
+using GestAI.Domain.Entities;
 using GestAI.Domain.Enums;
 
 namespace GestAI.Domain.Entities.Commerce;

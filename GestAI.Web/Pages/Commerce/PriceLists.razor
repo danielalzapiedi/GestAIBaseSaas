@@ -256,7 +256,7 @@ else
         if (string.IsNullOrWhiteSpace(value)) return (0, null);
         var parts = value.Split(':');
         var productId = int.Parse(parts[0]);
-        var variantId = parts.Length > 1 && int.TryParse(parts[1], out var parsedVariant) && parsedVariant > 0 ? parsedVariant : null;
+        int? variantId = parts.Length > 1 && int.TryParse(parts[1], out var parsedVariant) && parsedVariant > 0 ? parsedVariant : null;
         return (productId, variantId);
     }
 

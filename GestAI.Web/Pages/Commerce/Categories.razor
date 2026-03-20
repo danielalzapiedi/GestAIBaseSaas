@@ -9,7 +9,7 @@
     <div class="row g-2 align-items-end">
         <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
         <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activas</option><option value="false">Inactivas</option></select></div>
-        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Load">Buscar</button></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Search">Buscar</button></div>
         <div class="col-md-3 text-md-end"><button class="btn btn-primary" @onclick="NewItem">Nueva categoría</button></div>
     </div>
 </div></div>
@@ -40,6 +40,13 @@
                 }
                 </tbody>
             </table>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">Página @_page de @TotalPages</span>
+                <div class="btn-group">
+                    <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+                    <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+                </div>
+            </div>
         }
     </div>
     <div class="col-lg-5">
@@ -83,15 +90,21 @@
     private string _status = string.Empty;
     private bool _loaded;
     private bool _showForm;
+    private int _page = 1;
+    private const int PageSize = 10;
     private CategoryUpsertCommand _form = new();
 
+    private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
+
     protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Search() { _page = 1; await Load(); }
 
     private async Task Load()
     {
         _loaded = false;
         var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>($"api/commerce/categories?search={Uri.EscapeDataString(_search ?? string.Empty)}{active}"))?.Data;
+        _result = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>($"api/commerce/categories?search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
         _allCategories = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>("api/commerce/categories?pageSize=200"))?.Data?.Items.ToList() ?? new();
         _tree = (await Api.GetAsync<AppResult<List<CategoryTreeItemDto>>>("api/commerce/categories/tree"))?.Data ?? new();
         _loaded = true;
@@ -138,4 +151,6 @@
     }
 
     private void Cancel() => _showForm = false;
+    private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
+    private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
 }

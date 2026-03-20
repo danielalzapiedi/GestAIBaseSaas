@@ -10,7 +10,7 @@
         <div class="col-md-3"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre, código, marca" /></div>
         <div class="col-md-3"><label class="form-label">Categoría</label><select class="form-select" @bind="_selectedCategoryId"><option value="0">Todas</option>@foreach (var category in _seed.Categories){<option value="@category.Id">@category.Name</option>}</select></div>
         <div class="col-md-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Load">Buscar</button></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Search">Buscar</button></div>
         <div class="col-md-2 text-md-end"><button class="btn btn-primary" @onclick="NewItem">Nuevo producto</button></div>
     </div>
 </div></div>
@@ -43,6 +43,13 @@ else
         }
         </tbody>
     </table>
+    <div class="d-flex justify-content-between align-items-center">
+        <span class="text-muted">Página @_page de @TotalPages</span>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+            <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+        </div>
+    </div>
 }
 
 @if (_showForm)
@@ -126,8 +133,12 @@ else
     private bool _loaded;
     private bool _showForm;
     private bool _showVariantForm;
+    private int _page = 1;
+    private const int PageSize = 10;
     private ProductUpsertCommand _form = new();
     private ProductVariantUpsertCommand _variantForm = new();
+
+    private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -140,12 +151,14 @@ else
         _seed = (await Api.GetAsync<AppResult<ProductSeedDataDto>>("api/commerce/products/seed"))?.Data ?? new ProductSeedDataDto(new List<LookupDto>(), new List<string>(), Enum.GetValues<UnitOfMeasure>());
     }
 
+    private async Task Search() { _page = 1; await Load(); }
+
     private async Task Load()
     {
         _loaded = false;
         var category = _selectedCategoryId > 0 ? $"&categoryId={_selectedCategoryId}" : string.Empty;
         var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<ProductListItemDto>>>($"api/commerce/products?search={Uri.EscapeDataString(_search ?? string.Empty)}{category}{active}"))?.Data;
+        _result = (await Api.GetAsync<AppResult<PagedResult<ProductListItemDto>>>($"api/commerce/products?search={Uri.EscapeDataString(_search ?? string.Empty)}{category}{active}&page={_page}&pageSize={PageSize}"))?.Data;
         _loaded = true;
     }
 
@@ -267,4 +280,6 @@ else
 
     private void Cancel() { _showForm = false; _showVariantForm = false; }
     private void CancelVariant() => _showVariantForm = false;
+    private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
+    private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
 }

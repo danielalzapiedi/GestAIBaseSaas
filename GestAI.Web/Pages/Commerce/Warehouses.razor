@@ -10,7 +10,7 @@
         <div class="col-md-3"><label class="form-label">Sucursal</label><select class="form-select" @bind="_selectedBranchId"><option value="0">Todas</option>@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
         <div class="col-md-3"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
         <div class="col-md-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Load">Buscar</button></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Search">Buscar</button></div>
         <div class="col-md-2 text-md-end"><button class="btn btn-primary" @onclick="NewItem">Nuevo depósito</button></div>
     </div>
 </div></div>
@@ -40,6 +40,13 @@ else
         }
         </tbody>
     </table>
+    <div class="d-flex justify-content-between align-items-center">
+        <span class="text-muted">Página @_page de @TotalPages</span>
+        <div class="btn-group">
+            <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+            <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+        </div>
+    </div>
 }
 
 @if (_showForm)
@@ -64,7 +71,11 @@ else
     private string _status = string.Empty;
     private bool _loaded;
     private bool _showForm;
+    private int _page = 1;
+    private const int PageSize = 10;
     private WarehouseUpsertCommand _form = new();
+
+    private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
 
     protected override async Task OnInitializedAsync()
     {
@@ -77,12 +88,14 @@ else
         _branches = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>("api/commerce/branches?pageSize=100"))?.Data?.Items.Select(x => new LookupDto(x.Id, x.Name)).ToList() ?? new();
     }
 
+    private async Task Search() { _page = 1; await Load(); }
+
     private async Task Load()
     {
         _loaded = false;
         var branch = _selectedBranchId > 0 ? $"branchId={_selectedBranchId}&" : string.Empty;
         var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<WarehouseListItemDto>>>($"api/commerce/warehouses?{branch}search={Uri.EscapeDataString(_search ?? string.Empty)}{active}"))?.Data;
+        _result = (await Api.GetAsync<AppResult<PagedResult<WarehouseListItemDto>>>($"api/commerce/warehouses?{branch}search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
         _loaded = true;
     }
 
@@ -115,4 +128,6 @@ else
     }
 
     private void Cancel() => _showForm = false;
+    private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
+    private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
 }

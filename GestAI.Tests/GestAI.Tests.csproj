@@ -14,6 +14,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.8" />
     <ProjectReference Include="..\GestAI.Application\GestAI.Application.csproj" />
     <ProjectReference Include="..\GestAI.Domain\GestAI.Domain.csproj" />
+    <ProjectReference Include="..\GestAI.Infrastructure\GestAI.Infrastructure.csproj" />
     <ProjectReference Include="..\GestAI.Infrastructure.Persistence\GestAI.Infrastructure.Persistence.csproj" />
   </ItemGroup>
   <ItemGroup>

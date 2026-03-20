@@ -1,0 +1,248 @@
+@page "/platform/tenants"
+@using GestAI.Web.Dtos
+@inject ApiClient Api
+
+<PageTitle>Tenants</PageTitle>
+
+<section class="page-hero">
+    <div>
+        <div class="page-hero-title">Tenants</div>
+        <div class="page-hero-subtitle">Administración central de tenants, owner inicial y estado de cada cuenta de la plataforma.</div>
+    </div>
+    <div class="page-hero-meta">
+        <span class="page-hero-chip"><i class="bi bi-building-gear"></i> Gestión centralizada</span>
+        @if (_canAccess)
+        {
+            <button class="btn btn-primary" @onclick="NewTenant"><i class="bi bi-plus-circle me-2"></i>Nuevo tenant</button>
+        }
+    </div>
+</section>
+
+@if (!_canAccess)
+{
+    <EmptyState Title="Acceso restringido"
+                Description="Solo un super administrador puede acceder a esta pantalla."
+                Icon="bi-shield-lock" />
+}
+else
+{
+    <div class="card ui-filter-card"><div class="card-body">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Buscar</label>
+                <input class="form-control" @bind="_search" placeholder="Nombre o email del dueño" />
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-outline-primary" @onclick="Search">Buscar</button>
+            </div>
+            <div class="col-md-6 text-md-end ui-table-meta">
+                Total visible: @(_result?.TotalCount ?? 0) tenants
+            </div>
+        </div>
+    </div></div>
+
+    @if (!_loaded)
+    {
+        <div class="card"><div class="card-body">Cargando tenants...</div></div>
+    }
+    else if (_result?.Items.Count == 0)
+    {
+        <EmptyState Title="No hay tenants cargados"
+                    Description="Creá el primer tenant de la plataforma para empezar a operar."
+                    Icon="bi-buildings">
+            <button class="btn btn-primary" @onclick="NewTenant">Crear tenant</button>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="ui-split-layout">
+            <div class="card ui-data-card">
+                <div class="card-body">
+                    <div class="ui-card-header">
+                        <div>
+                            <h5 class="ui-card-title">Tenants de la plataforma</h5>
+                            <div class="ui-card-subtitle">Estado, owner principal y cantidad de usuarios por tenant.</div>
+                        </div>
+                    </div>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Tenant</th>
+                                <th>Dueño</th>
+                                <th>Email</th>
+                                <th>Usuarios</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in _result!.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">@item.Name</div>
+                                        <div class="ui-table-meta">Creado el @item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                    </td>
+                                    <td>@item.OwnerName</td>
+                                    <td>@item.OwnerEmail</td>
+                                    <td>@item.UsersCount</td>
+                                    <td><StatusBadge IsActive="@item.IsActive" /></td>
+                                    <td>
+                                        <div class="ui-inline-actions">
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)">Editar</button>
+                                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)">@(item.IsActive ? "Desactivar" : "Activar")</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="ui-action-bar">
+                        <span class="text-muted">Página @_page de @TotalPages</span>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+                            <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card ui-form-card">
+                <div class="card-body">
+                    <div class="ui-card-header">
+                        <div>
+                            <h5 class="ui-card-title">@(_showForm ? (_editingId == 0 ? "Nuevo tenant" : "Editar tenant") : "Operaciones")</h5>
+                            <div class="ui-card-subtitle">Alta, edición y activación de tenants.</div>
+                        </div>
+                    </div>
+
+                    @if (!_showForm)
+                    {
+                        <EmptyState Title="Seleccioná una operación"
+                                    Description="Creá un tenant nuevo o editá uno existente desde la tabla."
+                                    Icon="bi-building-add">
+                            <button class="btn btn-primary" @onclick="NewTenant">Nuevo tenant</button>
+                        </EmptyState>
+                    }
+                    else
+                    {
+                        <div class="row g-3">
+                            <div class="col-12"><label class="form-label">Nombre tenant</label><input class="form-control" @bind="_form.Name" /></div>
+                            <div class="col-md-4"><label class="form-label">Activo</label><input type="checkbox" class="form-check-input ms-2" @bind="_form.IsActive" /></div>
+                        </div>
+
+                        @if (_editingId == 0)
+                        {
+                            <hr />
+                            <h6>Owner inicial</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label">Nombre</label><input class="form-control" @bind="_ownerFirstName" /></div>
+                                <div class="col-md-6"><label class="form-label">Apellido</label><input class="form-control" @bind="_ownerLastName" /></div>
+                                <div class="col-12"><label class="form-label">Email</label><input class="form-control" @bind="_ownerEmail" /></div>
+                                <div class="col-12"><label class="form-label">Password temporal</label><input class="form-control" @bind="_ownerPassword" /></div>
+                            </div>
+                        }
+
+                        <div class="ui-action-bar">
+                            <div class="ui-inline-actions">
+                                <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                                <button class="btn btn-outline-secondary" @onclick="Cancel">Cancelar</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private PagedResult<PlatformTenantListItemDto>? _result;
+    private bool _loaded;
+    private string _search = string.Empty;
+    private int _page = 1;
+    private const int PageSize = 10;
+    private bool _showForm;
+    private int _editingId;
+    private UpdateTenantCommand _form = new();
+    private string _ownerFirstName = string.Empty;
+    private string _ownerLastName = string.Empty;
+    private string _ownerEmail = string.Empty;
+    private string _ownerPassword = "Temp123$";
+
+    private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
+
+    private bool _canAccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var access = (await Api.GetAsync<AppResult<CurrentUserAccessDto>>("api/saas/me/access"))?.Data;
+        _canAccess = access?.IsPlatformAdmin == true;
+        if (_canAccess)
+        {
+            await Load();
+        }
+        else
+        {
+            _loaded = true;
+        }
+    }
+
+    private async Task Load()
+    {
+        _loaded = false;
+        var url = $"api/platform/tenants?search={Uri.EscapeDataString(_search ?? string.Empty)}&page={_page}&pageSize={PageSize}";
+        _result = (await Api.GetAsync<AppResult<PagedResult<PlatformTenantListItemDto>>>(url))?.Data;
+        _loaded = true;
+    }
+
+    private async Task Search()
+    {
+        _page = 1;
+        await Load();
+    }
+
+    private void NewTenant()
+    {
+        _editingId = 0;
+        _form = new UpdateTenantCommand { IsActive = true };
+        _ownerFirstName = string.Empty;
+        _ownerLastName = string.Empty;
+        _ownerEmail = string.Empty;
+        _ownerPassword = "Temp123$";
+        _showForm = true;
+    }
+
+    private void Edit(PlatformTenantListItemDto item)
+    {
+        _editingId = item.Id;
+        _form = new UpdateTenantCommand { TenantId = item.Id, Name = item.Name, IsActive = item.IsActive };
+        _showForm = true;
+    }
+
+    private async Task Save()
+    {
+        if (_editingId == 0)
+        {
+            await Api.PostAsync("api/platform/tenants", new CreateTenantCommand { Name = _form.Name, OwnerFirstName = _ownerFirstName, OwnerLastName = _ownerLastName, OwnerEmail = _ownerEmail, OwnerPassword = _ownerPassword });
+        }
+        else
+        {
+            _form.TenantId = _editingId;
+            await Api.PutAsync($"api/platform/tenants/{_editingId}", _form);
+        }
+
+        _showForm = false;
+        await Load();
+    }
+
+    private async Task Toggle(PlatformTenantListItemDto item)
+    {
+        await Api.PostAsync($"api/platform/tenants/{item.Id}/status", new { isActive = !item.IsActive });
+        await Load();
+    }
+
+    private void Cancel() => _showForm = false;
+    private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
+    private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+}

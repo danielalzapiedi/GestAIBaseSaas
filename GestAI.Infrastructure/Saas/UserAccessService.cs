@@ -38,7 +38,7 @@ public sealed class UserAccessService(IAppDbContext db, ICurrentUser current) : 
             .Select(x => new
             {
                 IsOwner = x.OwnerUserId == current.UserId,
-                Membership = x.Users.Where(u => u.UserId == current.UserId && u.IsActive).Select(u => new { u.Role }).FirstOrDefault(),
+                Membership = x.Users.Where(u => u.UserId == current.UserId && u.IsActive).Select(u => new { u.Role, u.AllowedModules }).FirstOrDefault(),
                 Plan = x.SubscriptionPlans.Where(p => p.IsActive).OrderByDescending(p => p.StartedAtUtc).Select(p => p.PlanDefinition).FirstOrDefault()
             })
             .FirstOrDefaultAsync(ct);
@@ -47,6 +47,7 @@ public sealed class UserAccessService(IAppDbContext db, ICurrentUser current) : 
         if (!account.IsOwner && account.Membership is null) return false;
 
         var role = account.IsOwner ? InternalUserRole.Owner : account.Membership!.Role;
-        return SaasPermissionMap.HasAccess(role, account.Plan, module, account.IsOwner);
+        var assignedModules = account.IsOwner ? null : SaasPermissionMap.ParseAssignedModules(account.Membership!.AllowedModules);
+        return SaasPermissionMap.HasAccess(role, account.Plan, module, account.IsOwner, false, assignedModules);
     }
 }

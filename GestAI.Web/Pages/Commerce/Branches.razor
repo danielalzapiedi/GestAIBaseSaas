@@ -1,0 +1,171 @@
+@page "/branches"
+@using GestAI.Web.Dtos
+@inject ApiClient Api
+
+<PageTitle>Sucursales</PageTitle>
+
+<section class="page-hero">
+    <div>
+        <div class="page-hero-title">Sucursales</div>
+        <div class="page-hero-subtitle">Organizá las sucursales del negocio y controlá su estado operativo.</div>
+    </div>
+    <div class="page-hero-meta">
+        <span class="page-hero-chip"><i class="bi bi-shop"></i> @_result?.TotalCount ?? 0 sucursales</span>
+        <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva sucursal</button>
+    </div>
+</section>
+
+<div class="card ui-filter-card"><div class="card-body">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre o código" /></div>
+        <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Search">Buscar</button></div>
+        <div class="col-md-3 text-md-end ui-table-meta">Gestión de estructura comercial</div>
+    </div>
+</div></div>
+
+@if (!_loaded)
+{
+    <div class="card"><div class="card-body">Cargando sucursales...</div></div>
+}
+else if (_result?.Items.Count == 0)
+{
+    <EmptyState Title="No hay sucursales para mostrar"
+                Description="Creá la primera sucursal para empezar a organizar la operación."
+                Icon="bi-shop">
+        <button class="btn btn-primary" @onclick="NewItem">Crear sucursal</button>
+    </EmptyState>
+}
+else
+{
+    <div class="ui-split-layout">
+        <div class="card ui-data-card">
+            <div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <h5 class="ui-card-title">Listado de sucursales</h5>
+                        <div class="ui-card-subtitle">Nombre, código interno y depósitos asociados.</div>
+                    </div>
+                </div>
+                <table class="table table-striped">
+                    <thead><tr><th>Nombre</th><th>Código</th><th>Depósitos</th><th>Estado</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var item in _result!.Items)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@item.Name</td>
+                            <td>@item.Code</td>
+                            <td>@item.WarehousesCount</td>
+                            <td><StatusBadge IsActive="@item.IsActive" /></td>
+                            <td>
+                                <div class="ui-inline-actions">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)">Editar</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)">@(item.IsActive ? "Desactivar" : "Activar")</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+                <div class="ui-action-bar">
+                    <span class="text-muted">Página @_page de @TotalPages</span>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+                        <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card ui-form-card">
+            <div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <h5 class="ui-card-title">@(_showForm ? (_form.Id == 0 ? "Nueva sucursal" : "Editar sucursal") : "Detalle y edición")</h5>
+                        <div class="ui-card-subtitle">Completá los datos básicos de la sucursal.</div>
+                    </div>
+                </div>
+
+                @if (!_showForm)
+                {
+                    <EmptyState Title="Seleccioná una acción"
+                                Description="Podés crear una sucursal nueva o editar una existente desde la tabla."
+                                Icon="bi-pencil-square">
+                        <button class="btn btn-primary" @onclick="NewItem">Nueva sucursal</button>
+                    </EmptyState>
+                }
+                else
+                {
+                    <div class="row g-3">
+                        <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" /></div>
+                        <div class="col-md-4"><label class="form-label">Código</label><input class="form-control" @bind="_form.Code" /></div>
+                        <div class="col-md-4"><label class="form-label">Activa</label><input type="checkbox" class="form-check-input ms-2" @bind="_form.IsActive" /></div>
+                    </div>
+                    <div class="ui-action-bar">
+                        <div class="ui-inline-actions">
+                            <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                            <button class="btn btn-outline-secondary" @onclick="Cancel">Cancelar</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private PagedResult<BranchListItemDto>? _result;
+    private string _search = string.Empty;
+    private string _status = string.Empty;
+    private bool _loaded;
+    private bool _showForm;
+    private int _page = 1;
+    private const int PageSize = 10;
+    private BranchUpsertCommand _form = new();
+
+    private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Search() { _page = 1; await Load(); }
+
+    private async Task Load()
+    {
+        _loaded = false;
+        var isActive = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
+        _result = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>($"api/commerce/branches?search={Uri.EscapeDataString(_search ?? string.Empty)}{isActive}&page={_page}&pageSize={PageSize}"))?.Data;
+        _loaded = true;
+    }
+
+    private void NewItem()
+    {
+        _form = new BranchUpsertCommand { IsActive = true };
+        _showForm = true;
+    }
+
+    private async Task Edit(BranchListItemDto item)
+    {
+        var detail = (await Api.GetAsync<AppResult<BranchDetailDto>>($"api/commerce/branches/{item.Id}"))?.Data;
+        if (detail is null) return;
+        _form = new BranchUpsertCommand { Id = detail.Id, Name = detail.Name, Code = detail.Code, IsActive = detail.IsActive };
+        _showForm = true;
+    }
+
+    private async Task Save()
+    {
+        if (_form.Id == 0) await Api.PostAsync("api/commerce/branches", new { _form.Name, _form.Code, _form.IsActive });
+        else await Api.PutAsync($"api/commerce/branches/{_form.Id}", new { _form.Id, _form.Name, _form.Code, _form.IsActive });
+        _showForm = false;
+        await Load();
+    }
+
+    private async Task Toggle(BranchListItemDto item)
+    {
+        await Api.PostAsync($"api/commerce/branches/{item.Id}/status", new { isActive = !item.IsActive });
+        await Load();
+    }
+
+    private void Cancel() => _showForm = false;
+    private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
+    private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+}

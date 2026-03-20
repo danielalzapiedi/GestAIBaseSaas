@@ -9,6 +9,7 @@ public sealed record CurrentUserAccessDto(
     InternalUserRole? Role,
     bool IsOwner,
     bool IsActive,
+    bool IsPlatformAdmin,
     List<ModuleAccessDto> Modules);
 
 public sealed record AccountSummaryDto(
@@ -37,6 +38,7 @@ public sealed record AccountUserListItemDto(
     string Email,
     bool IsActive,
     InternalUserRole Role,
+    List<SaasModule> AllowedModules,
     DateTime? LastLoginAtUtc,
     DateTime InvitedAtUtc);
 
@@ -47,6 +49,7 @@ public sealed record UpsertAccountUserCommand(
     string Email,
     bool IsActive,
     InternalUserRole Role,
+    List<SaasModule> AllowedModules,
     string? Password) : MediatR.IRequest<GestAI.Application.Common.AppResult<string>>;
 
 public sealed record ToggleAccountUserStatusCommand(string UserId, bool IsActive) : MediatR.IRequest<GestAI.Application.Common.AppResult>;

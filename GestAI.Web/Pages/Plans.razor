@@ -2,22 +2,42 @@
 @inject ApiClient Api
 @using GestAI.Web.Dtos
 
-<h1>Plans</h1>
+<section class="page-hero">
+    <div>
+        <div class="page-hero-title">Mi plan</div>
+        <div class="page-hero-subtitle">Visualizá el plan activo, sus límites y las capacidades incluidas para tu cuenta.</div>
+    </div>
+    <div class="page-hero-meta">
+        <span class="page-hero-chip"><i class="bi bi-stars"></i> Suscripción actual</span>
+    </div>
+</section>
 
 @if (_summary is null)
 {
-    <p>Cargando...</p>
+    <div class="card"><div class="card-body">Cargando información del plan...</div></div>
 }
 else
 {
-    <div class="card"><div class="card-body">
-        <p><strong>Plan actual:</strong> @_summary.PlanName (@_summary.PlanCode)</p>
-        <ul>
-            <li>Máximo usuarios: @_summary.MaxUsers</li>
-            <li>Máximo entidades: @_summary.MaxUnits</li>
-            <li>Features: Reportes=@_summary.IncludesReports, Operaciones=@_summary.IncludesOperations</li>
-        </ul>
-    </div></div>
+    <div class="row g-3 ui-summary-grid">
+        <div class="col-md-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Plan</div><div class="ui-stat-value">@_summary.PlanName</div><div class="ui-stat-foot">Código @(_summary.PlanCode).</div></div></div></div>
+        <div class="col-md-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Usuarios</div><div class="ui-stat-value">@_summary.MaxUsers</div><div class="ui-stat-foot">Capacidad máxima de usuarios.</div></div></div></div>
+        <div class="col-md-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Entidades</div><div class="ui-stat-value">@_summary.MaxUnits</div><div class="ui-stat-foot">Capacidad máxima operativa.</div></div></div></div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-body">
+            <div class="ui-card-header">
+                <div>
+                    <h5 class="ui-card-title">Funciones incluidas</h5>
+                    <div class="ui-card-subtitle">Resumen rápido de capacidades habilitadas por el plan.</div>
+                </div>
+            </div>
+            <div class="ui-list-stack">
+                <div class="ui-check-card"><i class="bi bi-bar-chart-line text-primary"></i><div><strong>Reportes</strong><div class="ui-table-meta">@(_summary.IncludesReports ? "Incluidos" : "No incluidos")</div></div></div>
+                <div class="ui-check-card"><i class="bi bi-gear text-primary"></i><div><strong>Operaciones</strong><div class="ui-table-meta">@(_summary.IncludesOperations ? "Incluidas" : "No incluidas")</div></div></div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {

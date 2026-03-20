@@ -261,6 +261,234 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     b.ToTable("Branches", (string)null);
                 });
 
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CashSessionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Concept")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Observations")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OriginType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CashRegisterId");
+
+                    b.HasIndex("CashSessionId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("AccountId", "CashRegisterId", "OccurredAtUtc");
+
+                    b.ToTable("CashMovements", (string)null);
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashRegister", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId");
+
+                    b.HasIndex("AccountId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("CashRegisters", (string)null);
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CashRegisterId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ClosedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal?>("ClosingBalanceDeclared")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("ClosingBalanceExpected")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("OpenedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OpenedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("OpeningBalance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CashRegisterId");
+
+                    b.HasIndex("AccountId", "CashRegisterId", "Status");
+
+                    b.ToTable("CashSessions", (string)null);
+                });
+
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.Customer", b =>
                 {
                     b.Property<int>("Id")
@@ -330,6 +558,162 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     b.HasIndex("AccountId", "Name");
 
                     b.ToTable("Customers", (string)null);
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CustomerAccountAllocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("AppliedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SourceMovementId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetMovementId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceMovementId");
+
+                    b.HasIndex("TargetMovementId");
+
+                    b.HasIndex("AccountId", "SourceMovementId", "TargetMovementId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerAccountAllocations", (string)null);
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CustomerAccountMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CashMovementId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("CreditAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DebitAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime>("IssuedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("MovementType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SaleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CashMovementId")
+                        .IsUnique()
+                        .HasFilter("[CashMovementId] IS NOT NULL");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("AccountId", "CashMovementId")
+                        .IsUnique()
+                        .HasFilter("[CashMovementId] IS NOT NULL");
+
+                    b.HasIndex("AccountId", "SaleId")
+                        .IsUnique()
+                        .HasFilter("[SaleId] IS NOT NULL");
+
+                    b.HasIndex("AccountId", "CustomerId", "IssuedAtUtc");
+
+                    b.ToTable("CustomerAccountMovements", (string)null);
                 });
 
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.GoodsReceipt", b =>
@@ -1523,6 +1907,67 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     b.ToTable("Suppliers", (string)null);
                 });
 
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.SupplierAccountAllocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("AppliedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("ModifiedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SourceMovementId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetMovementId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceMovementId");
+
+                    b.HasIndex("TargetMovementId");
+
+                    b.HasIndex("AccountId", "SourceMovementId", "TargetMovementId")
+                        .IsUnique();
+
+                    b.ToTable("SupplierAccountAllocations", (string)null);
+                });
+
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.SupplierAccountMovement", b =>
                 {
                     b.Property<int>("Id")
@@ -1532,6 +1977,9 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CashMovementId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAtUtc")
@@ -1552,8 +2000,8 @@ namespace GestAI.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
 
                     b.Property<DateTime>("IssuedAtUtc")
                         .HasColumnType("datetime2");
@@ -1569,8 +2017,11 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Note")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("int");
 
                     b.Property<int?>("PurchaseDocumentId")
                         .HasColumnType("int");
@@ -1591,9 +2042,17 @@ namespace GestAI.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CashMovementId")
+                        .IsUnique()
+                        .HasFilter("[CashMovementId] IS NOT NULL");
+
                     b.HasIndex("PurchaseDocumentId");
 
                     b.HasIndex("SupplierId");
+
+                    b.HasIndex("AccountId", "CashMovementId")
+                        .IsUnique()
+                        .HasFilter("[CashMovementId] IS NOT NULL");
 
                     b.HasIndex("AccountId", "PurchaseDocumentId")
                         .IsUnique()
@@ -1986,6 +2445,84 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashMovement", b =>
+                {
+                    b.HasOne("GestAI.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CashRegister", "CashRegister")
+                        .WithMany()
+                        .HasForeignKey("CashRegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CashSession", "CashSession")
+                        .WithMany("Movements")
+                        .HasForeignKey("CashSessionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Account");
+
+                    b.Navigation("CashRegister");
+
+                    b.Navigation("CashSession");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashRegister", b =>
+                {
+                    b.HasOne("GestAI.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashSession", b =>
+                {
+                    b.HasOne("GestAI.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CashRegister", "CashRegister")
+                        .WithMany("Sessions")
+                        .HasForeignKey("CashRegisterId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("CashRegister");
+                });
+
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.Customer", b =>
                 {
                     b.HasOne("GestAI.Domain.Entities.Account", "Account")
@@ -1995,6 +2532,66 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CustomerAccountAllocation", b =>
+                {
+                    b.HasOne("GestAI.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CustomerAccountMovement", "SourceMovement")
+                        .WithMany("AllocationsAsSource")
+                        .HasForeignKey("SourceMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CustomerAccountMovement", "TargetMovement")
+                        .WithMany("AllocationsAsTarget")
+                        .HasForeignKey("TargetMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("SourceMovement");
+
+                    b.Navigation("TargetMovement");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CustomerAccountMovement", b =>
+                {
+                    b.HasOne("GestAI.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CashMovement", "CashMovement")
+                        .WithOne("CustomerAccountMovement")
+                        .HasForeignKey("GestAI.Domain.Entities.Commerce.CustomerAccountMovement", "CashMovementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.Sale", "Sale")
+                        .WithMany()
+                        .HasForeignKey("SaleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Account");
+
+                    b.Navigation("CashMovement");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Sale");
                 });
 
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.GoodsReceipt", b =>
@@ -2419,6 +3016,33 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.SupplierAccountAllocation", b =>
+                {
+                    b.HasOne("GestAI.Domain.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.SupplierAccountMovement", "SourceMovement")
+                        .WithMany("AllocationsAsSource")
+                        .HasForeignKey("SourceMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.SupplierAccountMovement", "TargetMovement")
+                        .WithMany("AllocationsAsTarget")
+                        .HasForeignKey("TargetMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("SourceMovement");
+
+                    b.Navigation("TargetMovement");
+                });
+
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.SupplierAccountMovement", b =>
                 {
                     b.HasOne("GestAI.Domain.Entities.Account", "Account")
@@ -2426,6 +3050,11 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("GestAI.Domain.Entities.Commerce.CashMovement", "CashMovement")
+                        .WithOne("SupplierAccountMovement")
+                        .HasForeignKey("GestAI.Domain.Entities.Commerce.SupplierAccountMovement", "CashMovementId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("GestAI.Domain.Entities.Commerce.PurchaseDocument", "PurchaseDocument")
                         .WithMany("SupplierAccountMovements")
@@ -2439,6 +3068,8 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Account");
+
+                    b.Navigation("CashMovement");
 
                     b.Navigation("PurchaseDocument");
 
@@ -2527,6 +3158,30 @@ namespace GestAI.Infrastructure.Persistence.Migrations
                     b.Navigation("Warehouses");
                 });
 
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashMovement", b =>
+                {
+                    b.Navigation("CustomerAccountMovement");
+
+                    b.Navigation("SupplierAccountMovement");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashRegister", b =>
+                {
+                    b.Navigation("Sessions");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CashSession", b =>
+                {
+                    b.Navigation("Movements");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.CustomerAccountMovement", b =>
+                {
+                    b.Navigation("AllocationsAsSource");
+
+                    b.Navigation("AllocationsAsTarget");
+                });
+
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.GoodsReceipt", b =>
                 {
                     b.Navigation("Items");
@@ -2573,6 +3228,13 @@ namespace GestAI.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("GestAI.Domain.Entities.Commerce.Sale", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("GestAI.Domain.Entities.Commerce.SupplierAccountMovement", b =>
+                {
+                    b.Navigation("AllocationsAsSource");
+
+                    b.Navigation("AllocationsAsTarget");
                 });
 #pragma warning restore 612, 618
         }

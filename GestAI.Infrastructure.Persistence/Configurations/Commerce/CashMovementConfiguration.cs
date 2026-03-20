@@ -23,7 +23,7 @@ public sealed class CashMovementConfiguration : IEntityTypeConfiguration<CashMov
         b.HasIndex(x => new { x.AccountId, x.CashRegisterId, x.OccurredAtUtc });
         b.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne(x => x.CashRegister).WithMany().HasForeignKey(x => x.CashRegisterId).OnDelete(DeleteBehavior.Restrict);
-        b.HasOne(x => x.CashSession).WithMany(x => x.Movements).HasForeignKey(x => x.CashSessionId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.CashSession).WithMany(x => x.Movements).HasForeignKey(x => x.CashSessionId).OnDelete(DeleteBehavior.NoAction);
         b.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
     }

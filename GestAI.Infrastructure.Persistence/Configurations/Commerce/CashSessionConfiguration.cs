@@ -22,6 +22,6 @@ public sealed class CashSessionConfiguration : IEntityTypeConfiguration<CashSess
         b.Property(x => x.RowVersion).IsRowVersion();
         b.HasIndex(x => new { x.AccountId, x.CashRegisterId, x.Status });
         b.HasOne(x => x.Account).WithMany().HasForeignKey(x => x.AccountId).OnDelete(DeleteBehavior.Cascade);
-        b.HasOne(x => x.CashRegister).WithMany(x => x.Sessions).HasForeignKey(x => x.CashRegisterId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.CashRegister).WithMany(x => x.Sessions).HasForeignKey(x => x.CashRegisterId).OnDelete(DeleteBehavior.NoAction);
     }
 }

@@ -12,7 +12,7 @@
     </div>
     <div class="page-hero-meta">
         <span class="page-hero-chip"><i class="bi bi-file-earmark-text"></i> @_result?.TotalCount ?? 0 presupuestos</span>
-        <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo presupuesto</button>
+        <button class="btn btn-primary" type="button" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo presupuesto</button>
     </div>
 </section>
 
@@ -29,7 +29,7 @@
         <div class="col-lg-3"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
         <div class="col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
         <div class="col-lg-2"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
-        <div class="col-lg-1"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+        <div class="col-lg-1"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
     </div>
 </div></div>
 
@@ -39,60 +39,71 @@
         {
             <div class="card"><div class="card-body">Cargando presupuestos...</div></div>
         }
-        else if (_result?.Items.Count == 0)
+        else if (_result?.Items.Count == 0 && !_showForm)
         {
             <EmptyState Title="No hay presupuestos"
                         Description="Creá el primer presupuesto comercial para empezar el circuito del Release 3."
                         Icon="bi-file-earmark-text">
-                <button class="btn btn-primary" @onclick="NewItem">Crear presupuesto</button>
+                <button class="btn btn-primary" type="button" @onclick="NewItem">Crear presupuesto</button>
             </EmptyState>
         }
         else
         {
-            <div class="card ui-data-card"><div class="card-body">
-                <div class="ui-card-header">
-                    <div>
-                        <div class="ui-card-eyebrow">Documentos comerciales</div>
-                        <h5 class="ui-card-title">Listado de presupuestos</h5>
-                        <div class="ui-card-subtitle">Con seguimiento de estado, vigencia, cliente y pasaje a venta.</div>
+            @if (_result?.Items.Count == 0)
+            {
+                <EmptyState Title="Todavía no hay presupuestos cargados"
+                            Description="Podés crear el primer presupuesto desde el editor lateral sin salir de esta pantalla."
+                            Icon="bi-file-earmark-text">
+                    <button class="btn btn-primary" type="button" @onclick="NewItem">Nuevo presupuesto</button>
+                </EmptyState>
+            }
+            else
+            {
+                <div class="card ui-data-card"><div class="card-body">
+                    <div class="ui-card-header">
+                        <div>
+                            <div class="ui-card-eyebrow">Documentos comerciales</div>
+                            <h5 class="ui-card-title">Listado de presupuestos</h5>
+                            <div class="ui-card-subtitle">Con seguimiento de estado, vigencia, cliente y pasaje a venta.</div>
+                        </div>
                     </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fechas</th><th>Items</th><th>Total</th><th>Estado</th><th></th></tr></thead>
-                        <tbody>
-                        @foreach (var item in _result!.Items)
-                        {
-                            <tr>
-                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.Number</span><span class="ui-table-meta">Presupuesto comercial</span></div></td>
-                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.CustomerName</span><span class="ui-table-meta">Cliente asociado</span></div></td>
-                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.IssuedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</span><span class="ui-table-meta">Vence @(item.ValidUntilUtc.HasValue ? item.ValidUntilUtc.Value.ToLocalTime().ToString("dd/MM/yyyy") : "sin fecha")</span></div></td>
-                                <td><StatusBadge Text="@(item.ItemsCount == 1 ? "1 ítem" : $"{item.ItemsCount} ítems")" CssClass="ui-badge ui-badge-neutral" /></td>
-                                <td><div class="ui-table-stack"><span class="fw-semibold">@item.Total.ToString("C")</span><span class="ui-table-meta">Subtotal @item.Subtotal.ToString("C")</span></div></td>
-                                <td><StatusBadge Text="@QuoteStatusLabel(item.Status)" CssClass="@QuoteStatusClass(item.Status)" /></td>
-                                <td>
-                                    <div class="ui-inline-actions flex-wrap">
-                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item.Id)">Editar</button>
-                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenDetail(item.Id)">Detalle</button>
-                                        @if (item.CanConvertToSale)
-                                        {
-                                            <button class="btn btn-sm btn-success" @onclick="() => Convert(item.Id)">Convertir</button>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                        </tbody>
-                    </table>
-                </div>
-                <div class="ui-action-bar">
-                    <span class="text-muted">Página @_page de @TotalPages</span>
-                    <div class="btn-group">
-                        <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                        <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fechas</th><th>Items</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+                            <tbody>
+                            @foreach (var item in _result!.Items)
+                            {
+                                <tr>
+                                    <td><div class="ui-table-stack"><span class="fw-semibold">@item.Number</span><span class="ui-table-meta">Presupuesto comercial</span></div></td>
+                                    <td><div class="ui-table-stack"><span class="fw-semibold">@item.CustomerName</span><span class="ui-table-meta">Cliente asociado</span></div></td>
+                                    <td><div class="ui-table-stack"><span class="fw-semibold">@item.IssuedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</span><span class="ui-table-meta">Vence @(item.ValidUntilUtc.HasValue ? item.ValidUntilUtc.Value.ToLocalTime().ToString("dd/MM/yyyy") : "sin fecha")</span></div></td>
+                                    <td><StatusBadge Text="@(item.ItemsCount == 1 ? "1 ítem" : $"{item.ItemsCount} ítems")" CssClass="ui-badge ui-badge-neutral" /></td>
+                                    <td><div class="ui-table-stack"><span class="fw-semibold">@item.Total.ToString("C")</span><span class="ui-table-meta">Subtotal @item.Subtotal.ToString("C")</span></div></td>
+                                    <td><StatusBadge Text="@QuoteStatusLabel(item.Status)" CssClass="@QuoteStatusClass(item.Status)" /></td>
+                                    <td>
+                                        <div class="ui-inline-actions flex-wrap">
+                                            <button class="btn btn-sm btn-outline-primary" type="button" @onclick="() => Edit(item.Id)">Editar</button>
+                                            <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => OpenDetail(item.Id)">Detalle</button>
+                                            @if (item.CanConvertToSale)
+                                            {
+                                                <button class="btn btn-sm btn-success" type="button" @onclick="() => Convert(item.Id)">Convertir</button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            </div></div>
+                    <div class="ui-action-bar">
+                        <span class="text-muted">Página @_page de @TotalPages</span>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary" type="button" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
+                            <button class="btn btn-outline-secondary" type="button" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
+                        </div>
+                    </div>
+                </div></div>
+            }
         }
     </div>
 
@@ -129,7 +140,7 @@
                     <EmptyState Title="Seleccioná una acción"
                                 Description="Creá un presupuesto nuevo o editá uno ya emitido desde la tabla principal."
                                 Icon="bi-pencil-square">
-                        <button class="btn btn-primary" @onclick="NewItem">Nuevo presupuesto</button>
+                        <button class="btn btn-primary" type="button" @onclick="NewItem">Nuevo presupuesto</button>
                     </EmptyState>
                 }
                 else
@@ -151,7 +162,7 @@
                                 <div class="ui-form-section-title mb-1">Ítems</div>
                                 <div class="ui-card-subtitle mt-0">Carga ágil con productos o variantes y edición mínima de cantidad/precio.</div>
                             </div>
-                            <button class="btn btn-sm btn-outline-primary" @onclick="AddBlankLine">Agregar línea</button>
+                            <button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddBlankLine">Agregar línea</button>
                         </div>
                         <div class="row g-2 mb-3">
                             <div class="col-12"><label class="form-label">Búsqueda rápida</label><input class="form-control" @bind="_quickSearch" placeholder="Buscar por nombre o código" /></div>
@@ -175,7 +186,7 @@
                             <EmptyState Title="Sin líneas cargadas"
                                         Description="Agregá productos para calcular subtotal y total del presupuesto."
                                         Icon="bi-card-list">
-                                <button class="btn btn-outline-primary" @onclick="AddBlankLine">Agregar línea</button>
+                                <button class="btn btn-outline-primary" type="button" @onclick="AddBlankLine">Agregar línea</button>
                             </EmptyState>
                         }
                         else
@@ -193,7 +204,7 @@
                                             <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
                                             <td><input class="form-control" type="number" step="0.01" @bind="line.UnitPrice" /></td>
                                             <td class="fw-semibold">@line.LineSubtotal.ToString("C")</td>
-                                            <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)">Quitar</button></td>
+                                            <td><button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => RemoveLine(i)">Quitar</button></td>
                                         </tr>
                                     }
                                     </tbody>
@@ -204,8 +215,8 @@
 
                     <div class="ui-action-bar">
                         <div class="ui-inline-actions">
-                            <button class="btn btn-primary" @onclick="Save">Guardar</button>
-                            <button class="btn btn-outline-secondary" @onclick="Cancel">Cancelar</button>
+                            <button class="btn btn-primary" type="button" @onclick="Save">Guardar</button>
+                            <button class="btn btn-outline-secondary" type="button" @onclick="Cancel">Cancelar</button>
                         </div>
                         <div class="ui-table-stack text-end">
                             <span class="fw-semibold">Total @FormTotal.ToString("C")</span>

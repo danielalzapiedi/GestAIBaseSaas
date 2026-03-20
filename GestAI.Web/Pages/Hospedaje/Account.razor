@@ -2,23 +2,56 @@
 @inject ApiClient Api
 @using GestAI.Web.Dtos
 
-<h1>Account Settings</h1>
+<section class="page-hero">
+    <div>
+        <div class="page-hero-title">Mi cuenta</div>
+        <div class="page-hero-subtitle">Actualizá la información general del tenant y revisá el estado actual de tu cuenta.</div>
+    </div>
+    <div class="page-hero-meta">
+        <span class="page-hero-chip"><i class="bi bi-building"></i> Perfil del tenant</span>
+    </div>
+</section>
 
 @if (_summary is null)
 {
-    <p>Cargando...</p>
+    <div class="card"><div class="card-body">Cargando datos de cuenta...</div></div>
 }
 else
 {
-    <div class="card"><div class="card-body">
-        <div class="mb-2"><strong>Estado:</strong> @(_summary.IsActive ? "Activa" : "Inactiva")</div>
-        <div class="mb-2"><strong>Creación:</strong> @_summary.CreatedAtUtc.ToLocalTime()</div>
-        <div class="mb-2"><strong>Plan:</strong> @_summary.PlanName</div>
-        <div class="mb-2"><strong>Límites:</strong> usuarios @_summary.MaxUsers, entidades @_summary.MaxUnits</div>
-        <label>Nombre de cuenta</label>
-        <input class="form-control" @bind="_name" />
-        <button class="btn btn-primary mt-3" @onclick="Save">Guardar</button>
-    </div></div>
+    <div class="ui-split-layout">
+        <div class="card">
+            <div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <h5 class="ui-card-title">Información general</h5>
+                        <div class="ui-card-subtitle">Resumen operativo y estado actual del tenant.</div>
+                    </div>
+                </div>
+                <div class="ui-list-stack">
+                    <div class="ui-check-card"><i class="bi bi-activity text-primary"></i><div><strong>Estado</strong><div class="ui-table-meta">@(_summary.IsActive ? "Activo" : "Inactivo")</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-calendar-event text-primary"></i><div><strong>Creación</strong><div class="ui-table-meta">@_summary.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-stars text-primary"></i><div><strong>Plan</strong><div class="ui-table-meta">@_summary.PlanName</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-people text-primary"></i><div><strong>Límites</strong><div class="ui-table-meta">Usuarios @_summary.MaxUsers · Entidades @_summary.MaxUnits</div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card ui-form-card">
+            <div class="card-body">
+                <div class="ui-card-header">
+                    <div>
+                        <h5 class="ui-card-title">Editar nombre de cuenta</h5>
+                        <div class="ui-card-subtitle">Usá un nombre claro para identificar el tenant.</div>
+                    </div>
+                </div>
+                <label class="form-label">Nombre de cuenta</label>
+                <input class="form-control" @bind="_name" />
+                <div class="ui-action-bar">
+                    <button class="btn btn-primary" @onclick="Save">Guardar cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @code {

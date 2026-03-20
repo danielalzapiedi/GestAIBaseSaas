@@ -14,27 +14,55 @@
                     <a href="/dashboard" class="logo d-flex align-items-center text-decoration-none gap-3">
                         <span class="ui-brand-mark"><i class="bi bi-shop-window"></i></span>
                         <span>
-                            <span class="d-block ui-brand-title">GestAI Comercio</span>
-                            <span class="d-none d-lg-block ui-brand-subtitle">Gestión comercial multi-tenant</span>
+                            <span class="d-block ui-brand-title">AiCommerce</span>
+                            <span class="d-none d-lg-block ui-brand-subtitle">Sistema comercial inteligente</span>
                         </span>
                     </a>
                     <div class="d-flex align-items-center gap-2 gap-lg-3">
-                        <div class="text-end d-none d-md-block">
-                            <div class="ui-user-eyebrow">Sesión activa</div>
-                            <div class="ui-user-name">@(_access?.IsPlatformAdmin == true ? "Super Admin" : _access?.Role?.ToString() ?? "Usuario")</div>
-                        </div>
                         @if (_loadingAccess)
                         {
                             <span class="text-muted small">Cargando acceso...</span>
                         }
                         else if (_access is not null)
                         {
-                            <span class="ui-role-pill">@(_access.IsPlatformAdmin ? "Super Admin" : _access.Role?.ToString() ?? "Sin rol")</span>
+                            <div class="dropdown">
+                                <button class="btn ui-user-menu dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="ui-avatar">@UserInitial</span>
+                                    <span class="text-start d-none d-md-block">
+                                        <span class="d-block ui-user-eyebrow">Sesión activa</span>
+                                        <span class="d-block ui-user-name">@UserDisplayName</span>
+                                    </span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end ui-user-dropdown">
+                                    <div class="ui-user-dropdown-head">
+                                        <div class="ui-avatar ui-avatar-lg">@UserInitial</div>
+                                        <div>
+                                            <div class="ui-user-dropdown-title">@UserDisplayName</div>
+                                            <div class="ui-user-dropdown-subtitle">@UserRoleLabel</div>
+                                        </div>
+                                    </div>
+
+                                    @if (CanAccess(SaasModule.Configuration))
+                                    {
+                                        <a class="dropdown-item" href="/account"><i class="bi bi-person-circle"></i><span>Mi cuenta</span></a>
+                                    }
+                                    @if (CanAccess(SaasModule.Plans))
+                                    {
+                                        <a class="dropdown-item" href="/plans"><i class="bi bi-stars"></i><span>Mi plan</span></a>
+                                    }
+                                    @if (CanAccess(SaasModule.Users))
+                                    {
+                                        <a class="dropdown-item" href="/users"><i class="bi bi-people"></i><span>Usuarios</span></a>
+                                    }
+
+                                    <div class="dropdown-divider"></div>
+                                    <button class="dropdown-item text-danger" @onclick="Logout">
+                                        <i class="bi bi-box-arrow-right"></i>
+                                        <span>Cerrar sesión</span>
+                                    </button>
+                                </div>
+                            </div>
                         }
-                        <button class="btn btn-outline-secondary btn-sm ui-logout-btn" @onclick="Logout">
-                            <i class="bi bi-box-arrow-right"></i>
-                            <span class="d-none d-md-inline">Salir</span>
-                        </button>
                     </div>
                 </div>
             </header>
@@ -44,6 +72,28 @@
                     <div class="ui-sidebar-title">Navegación</div>
                     <div class="ui-sidebar-subtitle">Accesos según tu rol y permisos</div>
                 </div>
+                @if (_access is not null)
+                {
+                    <div class="ui-sidebar-profile">
+                        <div class="ui-sidebar-profile-top">
+                            <span class="ui-avatar ui-avatar-lg">@UserInitial</span>
+                            <div>
+                                <div class="ui-sidebar-profile-name">@UserDisplayName</div>
+                                <div class="ui-sidebar-profile-role">@UserRoleLabel</div>
+                            </div>
+                        </div>
+                        <div class="ui-sidebar-profile-actions">
+                            @if (CanAccess(SaasModule.Configuration))
+                            {
+                                <a href="/account" class="btn btn-sm btn-light">Cuenta</a>
+                            }
+                            @if (CanAccess(SaasModule.Plans))
+                            {
+                                <a href="/plans" class="btn btn-sm btn-outline-light">Plan</a>
+                            }
+                        </div>
+                    </div>
+                }
 
                 <ul class="sidebar-nav ui-nav-list" id="sidebar-nav">
                     @if (CanAccess(SaasModule.Dashboard))
@@ -120,6 +170,9 @@
 @code {
     private CurrentUserAccessDto? _access;
     private bool _loadingAccess = true;
+    private string UserRoleLabel => _access?.IsPlatformAdmin == true ? "Super Admin" : _access?.Role?.ToString() ?? "Usuario";
+    private string UserDisplayName => _access?.IsPlatformAdmin == true ? "Administrador de plataforma" : _access?.Role == InternalUserRole.Owner ? "Owner del tenant" : _access?.Role == InternalUserRole.Employee ? "Usuario del tenant" : "Mi cuenta";
+    private string UserInitial => string.IsNullOrWhiteSpace(UserDisplayName) ? "A" : UserDisplayName.Trim()[0].ToString().ToUpperInvariant();
 
     protected override async Task OnInitializedAsync()
     {

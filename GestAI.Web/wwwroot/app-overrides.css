@@ -104,12 +104,77 @@ body {
     font-weight: 700;
 }
 
-.ui-logout-btn {
+.ui-user-menu {
     display: inline-flex;
     align-items: center;
-    gap: .45rem;
-    border-color: var(--ui-border-strong);
-    background: rgba(255,255,255,.7);
+    gap: .75rem;
+    min-height: 52px;
+    padding: .45rem .75rem;
+    background: rgba(255,255,255,.82);
+    border: 1px solid rgba(200,215,236,.95);
+    box-shadow: 0 12px 24px rgba(15,23,42,.06);
+}
+
+.ui-avatar {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+    color: #fff;
+    font-weight: 800;
+    box-shadow: 0 10px 18px rgba(37,99,235,.22);
+}
+
+.ui-avatar-lg {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    font-size: 1rem;
+}
+
+.ui-user-dropdown {
+    min-width: 270px;
+    padding: .65rem;
+    border-radius: 20px;
+    border: 1px solid rgba(217,228,242,.95);
+    box-shadow: 0 25px 55px rgba(15,23,42,.16);
+}
+
+.ui-user-dropdown-head {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    padding: .55rem;
+    margin-bottom: .35rem;
+}
+
+.ui-user-dropdown-title {
+    font-weight: 800;
+    color: var(--ui-text-heading);
+}
+
+.ui-user-dropdown-subtitle {
+    color: var(--ui-text-soft);
+    font-size: .85rem;
+}
+
+.ui-user-dropdown .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    border-radius: 14px;
+    padding: .75rem .8rem;
+    font-weight: 600;
+}
+
+.ui-user-dropdown .dropdown-item i {
+    font-size: 1rem;
+}
+
+.ui-user-dropdown .dropdown-item:hover {
+    background: #f4f7ff;
 }
 
 .ui-sidebar {
@@ -126,6 +191,42 @@ body {
     padding: 10px 12px 16px;
     border-bottom: 1px solid rgba(255,255,255,.08);
     margin-bottom: 10px;
+}
+
+.ui-sidebar-profile {
+    margin: 0 8px 16px;
+    padding: .95rem;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+    border: 1px solid rgba(255,255,255,.08);
+}
+
+.ui-sidebar-profile-top {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+}
+
+.ui-sidebar-profile-name {
+    color: #fff;
+    font-weight: 700;
+}
+
+.ui-sidebar-profile-role {
+    color: rgba(255,255,255,.56);
+    font-size: .82rem;
+}
+
+.ui-sidebar-profile-actions {
+    display: flex;
+    gap: .5rem;
+    margin-top: .9rem;
+}
+
+.ui-sidebar-profile-actions .btn {
+    min-height: 36px;
+    padding: .35rem .8rem;
+    border-radius: 12px;
 }
 
 .ui-sidebar-title {

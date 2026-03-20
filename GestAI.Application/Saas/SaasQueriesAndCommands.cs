@@ -117,6 +117,8 @@ public sealed class UpdateAccountCommandHandler(IAppDbContext db, IUserAccessSer
     {
         var accountId = await access.GetCurrentAccountIdAsync(ct);
         if (!accountId.HasValue) return AppResult.Fail("account_required", "No se encontró una cuenta activa.");
+        if (!await access.HasModuleAccessAsync(accountId.Value, SaasModule.Configuration, ct))
+            return AppResult.Fail("forbidden", "No tenés permisos para administrar la configuración de la cuenta.");
 
         var account = await db.Accounts.FirstOrDefaultAsync(x => x.Id == accountId.Value, ct);
         if (account is null) return AppResult.Fail("not_found", "Cuenta no encontrada.");
@@ -135,6 +137,8 @@ public sealed class GetAccountUsersQueryHandler(IAppDbContext db, IUserAccessSer
     {
         var accountId = await access.GetCurrentAccountIdAsync(ct);
         if (!accountId.HasValue) return AppResult<List<AccountUserListItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
+        if (!await access.HasModuleAccessAsync(accountId.Value, SaasModule.Users, ct))
+            return AppResult<List<AccountUserListItemDto>>.Fail("forbidden", "No tenés permisos para administrar usuarios.");
 
         var users = await db.AccountUsers.AsNoTracking()
             .Where(x => x.AccountId == accountId.Value)
@@ -174,6 +178,8 @@ public sealed class UpsertAccountUserCommandHandler(IAppDbContext db, IUserAcces
     {
         var accountId = await access.GetCurrentAccountIdAsync(ct);
         if (!accountId.HasValue) return AppResult<string>.Fail("account_required", "No se encontró una cuenta activa.");
+        if (!await access.HasModuleAccessAsync(accountId.Value, SaasModule.Users, ct))
+            return AppResult<string>.Fail("forbidden", "No tenés permisos para administrar usuarios.");
 
         if (request.UserId is null)
         {
@@ -245,6 +251,8 @@ public sealed class GetAccountAuditQueryHandler(IAppDbContext db, IUserAccessSer
     {
         var accountId = await access.GetCurrentAccountIdAsync(ct);
         if (!accountId.HasValue) return AppResult<List<AccountAuditItemDto>>.Fail("account_required", "No se encontró una cuenta activa.");
+        if (!await access.HasModuleAccessAsync(accountId.Value, SaasModule.AuditLog, ct))
+            return AppResult<List<AccountAuditItemDto>>.Fail("forbidden", "No tenés permisos para ver la auditoría.");
 
         var query = db.AuditLogs.AsNoTracking().Where(x => x.AccountId == accountId.Value);
 

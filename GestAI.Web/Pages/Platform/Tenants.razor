@@ -20,7 +20,7 @@ else
                 <input class="form-control" @bind="_search" placeholder="Nombre o email del dueño" />
             </div>
             <div class="col-md-2">
-                <button class="btn btn-outline-primary" @onclick="Load">Buscar</button>
+                <button class="btn btn-outline-primary" @onclick="Search">Buscar</button>
             </div>
             <div class="col-md-6 text-md-end">
                 <button class="btn btn-primary" @onclick="NewTenant">Nuevo tenant</button>
@@ -142,6 +142,12 @@ else
         var url = $"api/platform/tenants?search={Uri.EscapeDataString(_search ?? string.Empty)}&page={_page}&pageSize={PageSize}";
         _result = (await Api.GetAsync<AppResult<PagedResult<PlatformTenantListItemDto>>>(url))?.Data;
         _loaded = true;
+    }
+
+    private async Task Search()
+    {
+        _page = 1;
+        await Load();
     }
 
     private void NewTenant()

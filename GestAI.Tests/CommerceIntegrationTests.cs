@@ -1,5 +1,6 @@
 using GestAI.Application.Abstractions;
 using GestAI.Application.Commerce;
+using GestAI.Application.Saas;
 using GestAI.Domain.Entities;
 using GestAI.Domain.Entities.Commerce;
 using GestAI.Domain.Enums;
@@ -172,6 +173,56 @@ public sealed class CommerceIntegrationTests
         Assert.Contains(createdAccount.Users, x => x.UserId == "tenant-owner" && x.Role == InternalUserRole.Owner);
         Assert.Contains(createdAccount.SubscriptionPlans, x => x.IsActive);
         Assert.Equal(createdAccount.Id, await db.Users.Where(x => x.Id == "tenant-owner").Select(x => x.DefaultAccountId).SingleAsync());
+    }
+
+    [Fact]
+    public async Task GetAccountUsers_Fails_WhenUserHasNoUsersModuleAccess()
+    {
+        await using var db = CreateDbContext();
+        var user = new User { Id = "owner-no-users", UserName = "owner-users@test", Email = "owner-users@test", Nombre = "Owner", Apellido = "Users", DefaultAccountId = 0 };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var account = new Account { Name = "Cuenta sin users", OwnerUserId = user.Id, IsActive = true };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+
+        user.DefaultAccountId = account.Id;
+        db.AccountUsers.Add(new AccountUser { AccountId = account.Id, UserId = user.Id, Role = InternalUserRole.Owner, IsActive = true });
+        await db.SaveChangesAsync();
+
+        var access = new UserAccessService(db, new TestCurrentUser(user.Id));
+        var handler = new GetAccountUsersQueryHandler(db, access);
+
+        var result = await handler.Handle(new GetAccountUsersQuery(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("forbidden", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task GetAccountAudit_Fails_WhenUserHasNoAuditModuleAccess()
+    {
+        await using var db = CreateDbContext();
+        var user = new User { Id = "owner-no-audit", UserName = "owner-audit@test", Email = "owner-audit@test", Nombre = "Owner", Apellido = "Audit", DefaultAccountId = 0 };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var account = new Account { Name = "Cuenta sin audit", OwnerUserId = user.Id, IsActive = true };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+
+        user.DefaultAccountId = account.Id;
+        db.AuditLogs.Add(new AuditLog { AccountId = account.Id, Action = "created", EntityName = "Account", Summary = "Seed" });
+        await db.SaveChangesAsync();
+
+        var access = new UserAccessService(db, new TestCurrentUser(user.Id));
+        var handler = new GetAccountAuditQueryHandler(db, access);
+
+        var result = await handler.Handle(new GetAccountAuditQuery(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("forbidden", result.ErrorCode);
     }
 
     private static AppDbContext CreateDbContext()

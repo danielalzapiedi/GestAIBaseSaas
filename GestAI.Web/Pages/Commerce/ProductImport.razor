@@ -23,7 +23,7 @@
                     <div>
                         <div class="ui-card-eyebrow">Fuente de datos</div>
                         <h5 class="ui-card-title">CSV simple y mantenible</h5>
-                        <div class="ui-card-subtitle">Columnas soportadas: Name, InternalCode, Barcode, Description, CategoryName, Brand, UnitOfMeasure, Cost, SalePrice, MinimumStock, IsActive, VariantName, VariantInternalCode, VariantBarcode, VariantAttributes, VariantCost, VariantSalePrice.</div>
+                        <div class="ui-card-subtitle">Columnas soportadas: Name, InternalCode, Barcode, Description, CategoryName, Brand, UnitOfMeasure, Cost, SalePrice, MinimumStock, IsActive, VariantName, VariantInternalCode, VariantBarcode, VariantAttributes, VariantCost, VariantSalePrice. También podés repetir el mismo producto en varias filas para importar múltiples variantes.</div>
                     </div>
                 </div>
                 <div class="ui-form-section">
@@ -101,6 +101,7 @@
 
     private const string SampleCsv = "Name,InternalCode,Barcode,Description,CategoryName,Brand,UnitOfMeasure,Cost,SalePrice,MinimumStock,IsActive,VariantName,VariantInternalCode,VariantBarcode,VariantAttributes,VariantCost,VariantSalePrice\n" +
         "Remera básica,REM-001,,Remera lisa manga corta,Indumentaria,GestAI,Unit,10,18,5,true,Talle M,REM-001-M,,Color negro / M,10,18\n" +
+        "Remera básica,REM-001,,Remera lisa manga corta,Indumentaria,GestAI,Unit,10,18,5,true,Talle L,REM-001-L,,Color negro / L,10,18\n" +
         "Taza blanca,TAZ-010,,Taza de cerámica 300ml,Hogar,GestAI,Unit,4,7.5,3,true,,,,,,";
 
     private async Task PreviewAsync()

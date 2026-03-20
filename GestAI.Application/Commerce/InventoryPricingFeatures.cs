@@ -91,7 +91,7 @@ file static class CommerceInventoryPricingHelpers
         var categories = await db.ProductCategories.AsNoTracking().Where(x => x.AccountId == accountId).ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id, ct);
         var products = await db.Products.AsNoTracking().Where(x => x.AccountId == accountId).ToListAsync(ct);
         var variants = await db.ProductVariants.AsNoTracking().Where(x => x.AccountId == accountId).ToListAsync(ct);
-        var productCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var fileProducts = new Dictionary<string, ProductImportProductDefinition>(StringComparer.OrdinalIgnoreCase);
         var variantCodesInFile = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in rows)
@@ -121,14 +121,27 @@ file static class CommerceInventoryPricingHelpers
             }
 
             var normalizedProductCode = row.InternalCode.Trim();
-            if (!productCodesInFile.Add(normalizedProductCode))
+            var isFirstRowForProduct = !fileProducts.ContainsKey(normalizedProductCode);
+            var currentProductDefinition = new ProductImportProductDefinition(
+                row.Name.Trim(),
+                string.IsNullOrWhiteSpace(row.Barcode) ? null : row.Barcode.Trim(),
+                row.Description.Trim(),
+                categoryId,
+                row.Brand.Trim(),
+                unit,
+                cost,
+                salePrice,
+                minimumStock,
+                ParseBool(row.IsActive));
+            if (fileProducts.TryGetValue(normalizedProductCode, out var existingProductDefinition) && existingProductDefinition != currentProductDefinition)
             {
-                resultRows.Add(new ProductImportPreviewRowDto(row.RowNumber, row.InternalCode, row.Name, false, false, false, false, false, "Código de producto duplicado dentro del archivo."));
+                resultRows.Add(new ProductImportPreviewRowDto(row.RowNumber, row.InternalCode, row.Name, false, false, false, false, false, "Las filas del mismo producto deben mantener los mismos datos base."));
                 continue;
             }
 
+            fileProducts[normalizedProductCode] = currentProductDefinition;
             var existingProduct = products.FirstOrDefault(x => x.InternalCode == normalizedProductCode);
-            var willCreateProduct = existingProduct is null;
+            var willCreateProduct = existingProduct is null && isFirstRowForProduct;
             var willUpdateProduct = existingProduct is not null && upsertExisting;
             if (existingProduct is not null && !upsertExisting)
             {
@@ -166,7 +179,14 @@ file static class CommerceInventoryPricingHelpers
             }
 
             parsedRows.Add(new ProductImportRow(row.RowNumber, row.Name.Trim(), normalizedProductCode, string.IsNullOrWhiteSpace(row.Barcode) ? null : row.Barcode.Trim(), row.Description.Trim(), categoryId, row.Brand.Trim(), unit, cost, salePrice, minimumStock, ParseBool(row.IsActive), row.VariantName?.Trim(), row.VariantInternalCode?.Trim(), string.IsNullOrWhiteSpace(row.VariantBarcode) ? null : row.VariantBarcode.Trim(), row.VariantAttributes?.Trim(), ParseNullableDecimal(row.VariantCost) ?? cost, ParseNullableDecimal(row.VariantSalePrice) ?? salePrice, existingProduct, existingVariant));
-            resultRows.Add(new ProductImportPreviewRowDto(row.RowNumber, row.InternalCode, row.Name, true, willCreateProduct, willUpdateProduct, willCreateVariant, willUpdateVariant, hasVariant ? "Producto y variante listos para procesar." : "Producto listo para procesar."));
+            var successMessage = hasVariant
+                ? willCreateProduct || willUpdateProduct
+                    ? "Producto y variante listos para procesar."
+                    : "Variante adicional lista para el mismo producto."
+                : willCreateProduct || willUpdateProduct
+                    ? "Producto listo para procesar."
+                    : "Fila adicional consistente para el mismo producto.";
+            resultRows.Add(new ProductImportPreviewRowDto(row.RowNumber, row.InternalCode, row.Name, true, willCreateProduct, willUpdateProduct, willCreateVariant, willUpdateVariant, successMessage));
         }
 
         return new ProductImportParseResult(parsedRows, new ProductImportPreviewDto(resultRows.Count, resultRows.Count(x => x.IsValid), resultRows.Count(x => !x.IsValid), resultRows));
@@ -261,6 +281,7 @@ file static class CommerceInventoryPricingHelpers
     public sealed record ProductImportParseResult(IReadOnlyList<ProductImportRow> Rows, ProductImportPreviewDto Preview);
     public sealed record ProductImportCsvRow(int RowNumber, string Name, string InternalCode, string Barcode, string Description, string CategoryName, string Brand, string UnitOfMeasure, string Cost, string SalePrice, string MinimumStock, string IsActive, string VariantName, string VariantInternalCode, string VariantBarcode, string VariantAttributes, string VariantCost, string VariantSalePrice);
     public sealed record ProductImportRow(int RowNumber, string Name, string InternalCode, string? Barcode, string Description, int CategoryId, string Brand, UnitOfMeasure UnitOfMeasure, decimal Cost, decimal SalePrice, decimal MinimumStock, bool IsActive, string? VariantName, string? VariantInternalCode, string? VariantBarcode, string? VariantAttributes, decimal VariantCost, decimal VariantSalePrice, Product? ExistingProduct, ProductVariant? ExistingVariant);
+    public sealed record ProductImportProductDefinition(string Name, string? Barcode, string Description, int CategoryId, string Brand, UnitOfMeasure UnitOfMeasure, decimal Cost, decimal SalePrice, decimal MinimumStock, bool IsActive);
 }
 
 public sealed class GetInventoryOverviewQueryHandler(IAppDbContext db, IUserAccessService access)
@@ -939,11 +960,16 @@ public sealed class ApplyProductImportCommandHandler(IAppDbContext db, IUserAcce
         var createdVariants = 0;
         var updatedVariants = 0;
         var messages = new List<string>();
+        var processedProducts = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in parsed.Rows)
         {
             Product product;
-            if (row.ExistingProduct is null)
+            if (processedProducts.TryGetValue(row.InternalCode, out var importedProduct))
+            {
+                product = importedProduct;
+            }
+            else if (row.ExistingProduct is null)
             {
                 product = new Product
                 {
@@ -982,6 +1008,7 @@ public sealed class ApplyProductImportCommandHandler(IAppDbContext db, IUserAcce
             }
 
             await db.SaveChangesAsync(ct);
+            processedProducts[row.InternalCode] = product;
 
             if (!string.IsNullOrWhiteSpace(row.VariantInternalCode) && !string.IsNullOrWhiteSpace(row.VariantName) && !string.IsNullOrWhiteSpace(row.VariantAttributes))
             {

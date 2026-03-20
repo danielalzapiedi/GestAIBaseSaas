@@ -393,6 +393,29 @@ public sealed class CommerceIntegrationTests
         Assert.False(result.Data.Rows[0].IsValid);
     }
 
+    [Fact]
+    public async Task ApplyProductImport_AllowsMultipleRows_ForSameProductWithDifferentVariants()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-import-variants@test");
+
+        db.ProductCategories.Add(new ProductCategory { AccountId = fixture.Account.Id, Name = "Indumentaria", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var handler = new ApplyProductImportCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
+        const string csv = "Name,InternalCode,Barcode,Description,CategoryName,Brand,UnitOfMeasure,Cost,SalePrice,MinimumStock,IsActive,VariantName,VariantInternalCode,VariantBarcode,VariantAttributes,VariantCost,VariantSalePrice\n" +
+                           "Remera básica,REM-001,,Remera lisa,Indumentaria,Marca,Unit,10,20,2,true,Talle M,REM-001-M,,Negra / M,10,20\n" +
+                           "Remera básica,REM-001,,Remera lisa,Indumentaria,Marca,Unit,10,20,2,true,Talle L,REM-001-L,,Negra / L,10,20";
+
+        var result = await handler.Handle(new ApplyProductImportCommand(csv, false), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, await db.Products.CountAsync(x => x.InternalCode == "REM-001"));
+        Assert.Equal(2, await db.ProductVariants.CountAsync(x => x.Product.InternalCode == "REM-001"));
+        Assert.Equal(1, result.Data!.CreatedProducts);
+        Assert.Equal(2, result.Data.CreatedVariants);
+    }
+
     private static AppDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()

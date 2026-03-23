@@ -629,7 +629,21 @@ public sealed class CreateDeliveryNoteCommandHandler(IAppDbContext db, IUserAcce
                 CreatedByUserId = current.UserId
             });
 
-            var stock = await CommerceInventoryPricingHelpers.GetOrCreateStockAsync(db, scope.AccountId, line.ProductId, line.ProductVariantId, warehouse.Id, current, ct);
+            var stock = await db.ProductWarehouseStocks.FirstOrDefaultAsync(x => x.AccountId == scope.AccountId && x.ProductId == line.ProductId && x.ProductVariantId == line.ProductVariantId && x.WarehouseId == warehouse.Id, ct);
+            if (stock is null)
+            {
+                stock = new ProductWarehouseStock
+                {
+                    AccountId = scope.AccountId,
+                    ProductId = line.ProductId,
+                    ProductVariantId = line.ProductVariantId,
+                    WarehouseId = warehouse.Id,
+                    QuantityOnHand = 0m
+                };
+                CommerceFeatureHelpers.TouchCreate(stock, current);
+                db.ProductWarehouseStocks.Add(stock);
+            }
+
             if (stock.QuantityOnHand - delivered < 0m)
                 return AppResult<int>.Fail("insufficient_stock", $"Stock insuficiente para {line.Description} en depósito {warehouse.Name}.");
             stock.QuantityOnHand -= delivered;

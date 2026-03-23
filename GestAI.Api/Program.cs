@@ -54,6 +54,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddPayPal(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 
 // Interfaces Application
 builder.Services.AddScoped<IIdentityService, IdentityService>();

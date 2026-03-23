@@ -1045,7 +1045,7 @@ public sealed class CommerceIntegrationTests
         db.Branches.Add(branch);
         await db.SaveChangesAsync();
 
-        var warehouse = new Warehouse { AccountId = fixture.Account.Id, BranchId = branch.Id, Name = "Principal", Code = "P1", IsActive = true };
+        var warehouse = new Warehouse { AccountId = fixture.Account.Id, BranchId = branch.Id, Name = "Principal", IsActive = true };
         var product = new Product { AccountId = fixture.Account.Id, Name = "Producto R", InternalCode = "REM-1", Description = "Producto", CategoryId = category.Id, Brand = "Marca", UnitOfMeasure = UnitOfMeasure.Unit, Cost = 10, SalePrice = 50, MinimumStock = 1, IsActive = true };
         db.Warehouses.Add(warehouse);
         db.Products.Add(product);

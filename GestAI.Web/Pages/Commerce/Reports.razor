@@ -17,8 +17,8 @@
 
 <div class="card ui-filter-card mb-3"><div class="card-body">
     <div class="row g-2 align-items-end">
-        <div class="col-md-4"><label class="form-label">Desde</label><input class="form-control" type="date" @bind-value="_fromText" /></div>
-        <div class="col-md-4"><label class="form-label">Hasta</label><input class="form-control" type="date" @bind-value="_toText" /></div>
+        <div class="col-md-4"><label class="form-label">Desde</label><input class="form-control" type="date" @bind-value="_from" /></div>
+        <div class="col-md-4"><label class="form-label">Hasta</label><input class="form-control" type="date" @bind-value="_to" /></div>
         <div class="col-md-4"><label class="form-label">Top productos</label><input class="form-control" type="number" min="3" max="20" @bind="_top" /></div>
     </div>
 </div></div>
@@ -128,18 +128,6 @@ else
     private DateTime _from = DateTime.UtcNow.Date.AddDays(-29);
     private DateTime _to = DateTime.UtcNow.Date;
     private int _top = 10;
-
-    private string _fromText
-    {
-        get => _from.ToString("yyyy-MM-dd");
-        set => _from = DateTime.TryParse(value, out var parsed) ? parsed.Date : _from;
-    }
-
-    private string _toText
-    {
-        get => _to.ToString("yyyy-MM-dd");
-        set => _to = DateTime.TryParse(value, out var parsed) ? parsed.Date : _to;
-    }
 
     protected override async Task OnInitializedAsync() => await Load();
 

@@ -7,7 +7,11 @@ using GestAI.Domain.Enums;
 using GestAI.Infrastructure.Persistence;
 using GestAI.Infrastructure.Commerce;
 using GestAI.Infrastructure.Saas;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace GestAI.Tests;
@@ -1020,7 +1024,12 @@ public sealed class CommerceIntegrationTests
         var created = await create.Handle(new CreateInvoiceCommand(saleId, null, InvoiceType.InvoiceB, DateTime.UtcNow, 0.21m), CancellationToken.None);
         Assert.True(created.Success);
 
-        var submit = new SubmitInvoiceToArcaCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService(), new FiscalIntegrationService());
+        var submit = new SubmitInvoiceToArcaCommandHandler(
+            db,
+            fixture.Access,
+            fixture.CurrentUser,
+            new TestAuditService(),
+            new FiscalIntegrationService(new TestHttpClientFactory(), new MemoryCache(new MemoryCacheOptions()), new TestWebHostEnvironment(), NullLogger<FiscalIntegrationService>.Instance));
         var submitted = await submit.Handle(new SubmitInvoiceToArcaCommand(created.Data), CancellationToken.None);
         Assert.True(submitted.Success);
 
@@ -1125,5 +1134,20 @@ public sealed class CommerceIntegrationTests
 
         public Task<(bool Success, string? UserId, string? Error)> FindUserIdByEmailAsync(string email, CancellationToken ct)
             => Task.FromResult((true, userId, (string?)null));
+    }
+
+    private sealed class TestHttpClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new();
+    }
+
+    private sealed class TestWebHostEnvironment : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "GestAI.Tests";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = AppContext.BaseDirectory;
+        public string EnvironmentName { get; set; } = "Development";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 }

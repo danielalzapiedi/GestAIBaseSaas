@@ -342,7 +342,7 @@ public static class DbInitializer
                 AccountId = account.Id,
                 Number = "COMP-0001",
                 DocumentType = PurchaseDocumentType.PurchaseDocument,
-                Status = PurchaseDocumentStatus.Confirmed,
+                Status = PurchaseDocumentStatus.Issued,
                 SupplierId = supplierDrinks.Id,
                 IssuedAtUtc = now.AddDays(-2),
                 SupplierDocumentNumber = "FAC-A-0001",

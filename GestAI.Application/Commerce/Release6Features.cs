@@ -45,6 +45,11 @@ public sealed record GetDocumentTraceabilityQuery(string? EntityName = null, str
 
 internal static class Release6Helpers
 {
+    public const int CommercialInvoiceFiscalStatusMaxLength = 500;
+    public const int FiscalSubmissionErrorMaxLength = 1000;
+    public const int AuditSummaryMaxLength = 2000;
+    public const int DocumentChangeSummaryMaxLength = 500;
+
     public static async Task<(bool Success, int AccountId, string ErrorCode, string Message)> RequireSalesAsync(IUserAccessService access, CancellationToken ct)
         => await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Sales, ct);
 
@@ -55,6 +60,17 @@ internal static class Release6Helpers
         => await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Products, ct);
 
     public static decimal RoundMoney(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
+
+    public static string? Truncate(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value!.Length <= maxLength)
+            return value;
+
+        if (maxLength <= 3)
+            return value[..maxLength];
+
+        return value[..(maxLength - 3)] + "...";
+    }
 
     public static async Task<DocumentSequence> NextSequenceAsync(IAppDbContext db, int accountId, string documentType, int pointOfSale, string prefix, ICurrentUser current, CancellationToken ct)
     {
@@ -495,6 +511,8 @@ public sealed class SubmitInvoiceToArcaCommandHandler(IAppDbContext db, IUserAcc
         await db.SaveChangesAsync(ct);
 
         var result = await fiscalIntegration.AuthorizeInvoiceAsync(invoice, invoice.FiscalConfiguration, ct);
+        var fiscalStatusDetail = Release6Helpers.Truncate(result.StatusDetail, Release6Helpers.CommercialInvoiceFiscalStatusMaxLength);
+        var submissionError = Release6Helpers.Truncate(result.ErrorMessage, Release6Helpers.FiscalSubmissionErrorMaxLength);
         var submission = new FiscalDocumentSubmission
         {
             AccountId = scope.AccountId,
@@ -505,7 +523,7 @@ public sealed class SubmitInvoiceToArcaCommandHandler(IAppDbContext db, IUserAcc
             RespondedAtUtc = DateTime.UtcNow,
             RequestPayload = result.RequestPayload,
             ResponsePayload = result.ResponsePayload,
-            ErrorMessage = result.ErrorMessage,
+            ErrorMessage = submissionError,
             ExternalReference = result.ExternalReference,
             CreatedAtUtc = DateTime.UtcNow,
             CreatedByUserId = current.UserId
@@ -520,13 +538,15 @@ public sealed class SubmitInvoiceToArcaCommandHandler(IAppDbContext db, IUserAcc
         };
         invoice.Cae = result.Cae;
         invoice.CaeDueDateUtc = result.CaeDueDateUtc;
-        invoice.FiscalStatusDetail = result.StatusDetail;
+        invoice.FiscalStatusDetail = fiscalStatusDetail;
         invoice.LastSubmissionAtUtc = DateTime.UtcNow;
         CommerceFeatureHelpers.TouchUpdate(invoice, current);
         await db.SaveChangesAsync(ct);
 
-        await audit.WriteAsync(scope.AccountId, null, nameof(CommercialInvoice), invoice.Id, "submitted", $"Factura {invoice.Number} enviada a ARCA: {invoice.FiscalStatusDetail}", ct);
-        await Release6Helpers.AppendChangeAsync(db, current, scope.AccountId, nameof(CommercialInvoice), invoice.Id, invoice.Number, "submitted", $"Resultado fiscal: {invoice.FiscalStatusDetail}", new { result.Status, result.Cae, result.CaeDueDateUtc, result.ErrorMessage }, invoice.Sale.Number, ct);
+        var auditSummary = Release6Helpers.Truncate($"Factura {invoice.Number} enviada a ARCA: {invoice.FiscalStatusDetail}", Release6Helpers.AuditSummaryMaxLength) ?? $"Factura {invoice.Number} enviada a ARCA.";
+        var changeSummary = Release6Helpers.Truncate($"Resultado fiscal: {invoice.FiscalStatusDetail}", Release6Helpers.DocumentChangeSummaryMaxLength) ?? "Resultado fiscal actualizado.";
+        await audit.WriteAsync(scope.AccountId, null, nameof(CommercialInvoice), invoice.Id, "submitted", auditSummary, ct);
+        await Release6Helpers.AppendChangeAsync(db, current, scope.AccountId, nameof(CommercialInvoice), invoice.Id, invoice.Number, "submitted", changeSummary, new { result.Status, result.Cae, result.CaeDueDateUtc, ErrorMessage = submissionError }, invoice.Sale.Number, ct);
         return AppResult.Ok();
     }
 }

@@ -96,7 +96,9 @@ using (var scope = app.Services.CreateScope())
             AdminEmail: "admin@local.test",
             AdminPassword: "Admin123$",
             PropertyName: "Tenant Demo",
-            UnitNames: new[] { "Workspace A", "Workspace B" }
+            UnitNames: new[] { "Workspace A", "Workspace B" },
+            DemoOwnerEmail: "daniel@daniel.com",
+            DemoOwnerPassword: "Temp123$"
         )
     );
 }

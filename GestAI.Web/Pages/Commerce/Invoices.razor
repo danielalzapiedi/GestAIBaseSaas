@@ -107,7 +107,7 @@
         if (_create.SaleId <= 0) return;
         var body = new { saleId = _create.SaleId, fiscalConfigurationId = _seed.FiscalConfiguration?.Id, invoiceType = _create.InvoiceType, taxRate = _create.TaxRate, issuedAtUtc = DateTime.UtcNow };
         var result = await Api.PostAsync<AppResult<int>>("api/commerce/invoices", body);
-        if (result?.Succeeded == true && result.Data > 0)
+        if (result?.Success == true && result.Data > 0)
         {
             Navigation.NavigateTo($"/invoices/{result.Data}");
         }

@@ -54,6 +54,9 @@ public sealed class ApiClient
         }
     }
 
+    public Task<TResponse?> PostAsync<TResponse>(string url, object? body, CancellationToken ct = default)
+        => PostAsync<object?, TResponse>(url, body, ct);
+
     public async Task PostAsync<TRequest>(string url, TRequest body, CancellationToken ct = default)
     {
         try

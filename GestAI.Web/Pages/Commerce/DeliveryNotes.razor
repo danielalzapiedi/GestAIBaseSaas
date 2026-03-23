@@ -89,7 +89,7 @@
             items = Array.Empty<object>()
         };
         var result = await Api.PostAsync<AppResult<int>>("api/commerce/delivery-notes", body);
-        if (result?.Succeeded == true && result.Data > 0)
+        if (result?.Success == true && result.Data > 0)
         {
             Navigation.NavigateTo($"/delivery-notes/{result.Data}");
         }

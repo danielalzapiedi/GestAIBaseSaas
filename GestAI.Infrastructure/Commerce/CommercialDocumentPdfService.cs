@@ -150,9 +150,9 @@ public sealed class CommercialDocumentPdfService : ICommercialDocumentPdfService
             }));
 
             column.Item().AlignRight().Width(240).Element(c => BuildTotalsCard(c,
-                ("Subtotal", FormatMoney(invoice.Subtotal)),
-                ("IVA", FormatMoney(invoice.TaxAmount)),
-                ("Otros impuestos", FormatMoney(invoice.OtherTaxesAmount)),
+                ("Subtotal", FormatMoney(invoice.Subtotal), false),
+                ("IVA", FormatMoney(invoice.TaxAmount), false),
+                ("Otros impuestos", FormatMoney(invoice.OtherTaxesAmount), false),
                 ("Total", FormatMoney(invoice.Total), true)));
 
             if (invoice.DeliveryNotes.Any())
@@ -214,7 +214,7 @@ public sealed class CommercialDocumentPdfService : ICommercialDocumentPdfService
             }));
 
             column.Item().AlignRight().Width(240).Element(c => BuildTotalsCard(c,
-                ("Total remitido", note.TotalQuantity.ToString("0.##", CultureInfo.InvariantCulture)),
+                ("Total remitido", note.TotalQuantity.ToString("0.##", CultureInfo.InvariantCulture), false),
                 ("Pendiente", note.PendingQuantity.ToString("0.##", CultureInfo.InvariantCulture), true)));
         });
     }
@@ -285,14 +285,14 @@ public sealed class CommercialDocumentPdfService : ICommercialDocumentPdfService
             });
     }
 
-    private static void HeaderCell(TableDescriptor header, string text)
+    private static void HeaderCell(TableCellDescriptor cell, string text)
     {
-        header.Cell().Background(Colors.Grey.Lighten3).Padding(6).Text(text).SemiBold();
+        cell.Background(Colors.Grey.Lighten3).Padding(6).Text(text).SemiBold();
     }
 
-    private static void BodyCell(TableDescriptor table, string text)
+    private static void BodyCell(TableCellDescriptor cell, string text)
     {
-        table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten3).PaddingVertical(6).PaddingHorizontal(4).Text(text);
+        cell.BorderBottom(1).BorderColor(Colors.Grey.Lighten3).PaddingVertical(6).PaddingHorizontal(4).Text(text);
     }
 
     private static string FormatMoney(decimal value)

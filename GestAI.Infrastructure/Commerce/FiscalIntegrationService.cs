@@ -203,12 +203,14 @@ public sealed class FiscalIntegrationService(
         var docType = ResolveDocumentType(invoice.Customer.DocumentNumber);
         var docNumber = ResolveDocumentNumber(invoice.Customer.DocumentNumber, docType);
         var cbteTipo = ResolveCbteTipo(invoice.InvoiceType);
+        var recipientIvaConditionId = ResolveRecipientIvaConditionId(invoice.InvoiceType, invoice.Customer.CustomerType, docType);
         var ivaId = ResolveVatRateId(invoice.Items.FirstOrDefault()?.TaxRate ?? 0.21m);
         var invoiceDate = invoice.IssuedAtUtc.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
         var detail = new XElement(wsfeNs + "FECAEDetRequest",
             new XElement(wsfeNs + "Concepto", 1),
             new XElement(wsfeNs + "DocTipo", docType),
             new XElement(wsfeNs + "DocNro", docNumber),
+            new XElement(wsfeNs + "CondicionIVAReceptorId", recipientIvaConditionId),
             new XElement(wsfeNs + "CbteDesde", invoice.SequentialNumber),
             new XElement(wsfeNs + "CbteHasta", invoice.SequentialNumber),
             new XElement(wsfeNs + "CbteFch", invoiceDate),
@@ -403,6 +405,18 @@ public sealed class FiscalIntegrationService(
             8 => 96,
             7 => 96,
             _ => 99
+        };
+    }
+
+    private static int ResolveRecipientIvaConditionId(InvoiceType invoiceType, CustomerType customerType, int documentType)
+    {
+        if (customerType == CustomerType.Consumer || documentType != 80)
+            return 5;
+
+        return invoiceType switch
+        {
+            InvoiceType.InvoiceC or InvoiceType.CreditNoteC => 5,
+            _ => 1
         };
     }
 

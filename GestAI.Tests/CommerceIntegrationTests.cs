@@ -1106,6 +1106,25 @@ public sealed class CommerceIntegrationTests
         Assert.Contains(history, x => x.EntityName == "Sale");
     }
 
+    [Theory]
+    [InlineData(InvoiceType.InvoiceB, CustomerType.Consumer, 99, 5)]
+    [InlineData(InvoiceType.InvoiceB, CustomerType.Mixed, 80, 1)]
+    [InlineData(InvoiceType.InvoiceA, CustomerType.Company, 80, 1)]
+    [InlineData(InvoiceType.InvoiceC, CustomerType.Company, 80, 5)]
+    public void FiscalIntegrationService_ResolveRecipientIvaConditionId_UsesExpectedFallback(
+        InvoiceType invoiceType,
+        CustomerType customerType,
+        int documentType,
+        int expected)
+    {
+        var method = typeof(FiscalIntegrationService).GetMethod("ResolveRecipientIvaConditionId", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var result = method!.Invoke(null, new object[] { invoiceType, customerType, documentType });
+
+        Assert.Equal(expected, Assert.IsType<int>(result));
+    }
+
     private sealed record CommerceFixture(Account Account, TestCurrentUser CurrentUser, UserAccessService Access);
 
     private sealed class TestCurrentUser(string userId, params string[] roles) : ICurrentUser

@@ -1126,6 +1126,41 @@ public sealed class CommerceIntegrationTests
     }
 
     [Fact]
+    public async Task UploadFiscalCredential_Fails_WhenCertificateExtensionIsInvalid()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-fiscal-file@test");
+
+        var store = new InMemoryFiscalCredentialStore();
+        var handler = new UploadFiscalCredentialCommandHandler(fixture.Access, store);
+        var payload = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5 });
+
+        var result = await handler.Handle(new UploadFiscalCredentialCommand("fiscal.exe", payload, "application/octet-stream", false), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("invalid_extension", result.ErrorCode);
+        Assert.Equal(0, store.SaveCalls);
+    }
+
+    [Fact]
+    public async Task UploadFiscalCredential_Fails_WhenFileExceedsLimit()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-fiscal-limit@test");
+
+        var store = new InMemoryFiscalCredentialStore();
+        var handler = new UploadFiscalCredentialCommandHandler(fixture.Access, store);
+        var oversized = new byte[Release6Helpers.MaxFiscalCredentialBytes + 1];
+        var payload = Convert.ToBase64String(oversized);
+
+        var result = await handler.Handle(new UploadFiscalCredentialCommand("cert.pem", payload, "application/x-pem-file", false), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("file_too_large", result.ErrorCode);
+        Assert.Equal(0, store.SaveCalls);
+    }
+
+    [Fact]
     public async Task CommercialDocumentPdfService_BuildInvoicePdfAsync_ReturnsPdfBytes()
     {
         var service = new CommercialDocumentPdfService();
@@ -1300,6 +1335,17 @@ public sealed class CommerceIntegrationTests
     private sealed class TestHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new();
+    }
+
+    private sealed class InMemoryFiscalCredentialStore : IFiscalCredentialStore
+    {
+        public int SaveCalls { get; private set; }
+
+        public Task<string> SaveAsync(int accountId, string fileName, byte[] content, bool isPrivateKey, CancellationToken ct)
+        {
+            SaveCalls += 1;
+            return Task.FromResult($"account-{accountId}/{fileName}");
+        }
     }
 
     private sealed class TestWebHostEnvironment : IWebHostEnvironment

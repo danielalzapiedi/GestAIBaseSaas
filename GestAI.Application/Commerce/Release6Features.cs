@@ -51,6 +51,9 @@ internal static class Release6Helpers
     public const int FiscalSubmissionErrorMaxLength = 1000;
     public const int AuditSummaryMaxLength = 2000;
     public const int DocumentChangeSummaryMaxLength = 500;
+    public const int MaxFiscalCredentialBytes = 2 * 1024 * 1024;
+    private static readonly HashSet<string> AllowedFiscalCertificateExtensions = new(StringComparer.OrdinalIgnoreCase) { ".crt", ".cer", ".pem", ".pfx", ".p12" };
+    private static readonly HashSet<string> AllowedFiscalPrivateKeyExtensions = new(StringComparer.OrdinalIgnoreCase) { ".key", ".pem" };
 
     public static async Task<(bool Success, int AccountId, string ErrorCode, string Message)> RequireSalesAsync(IUserAccessService access, CancellationToken ct)
         => await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Sales, ct);
@@ -72,6 +75,17 @@ internal static class Release6Helpers
             return value[..maxLength];
 
         return value[..(maxLength - 3)] + "...";
+    }
+
+    public static bool IsAllowedFiscalCredentialExtension(string? fileName, bool isPrivateKey)
+    {
+        var extension = Path.GetExtension(fileName ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(extension))
+            return false;
+
+        return isPrivateKey
+            ? AllowedFiscalPrivateKeyExtensions.Contains(extension)
+            : AllowedFiscalCertificateExtensions.Contains(extension);
     }
 
     public static async Task<DocumentSequence> NextSequenceAsync(IAppDbContext db, int accountId, string documentType, int pointOfSale, string prefix, ICurrentUser current, CancellationToken ct)
@@ -208,6 +222,7 @@ public sealed class UploadFiscalCredentialCommandValidator : AbstractValidator<U
     {
         RuleFor(x => x.FileName).NotEmpty().MaximumLength(255);
         RuleFor(x => x.ContentBase64).NotEmpty();
+        RuleFor(x => x.ContentBase64).MaximumLength(Release6Helpers.MaxFiscalCredentialBytes * 2);
     }
 }
 
@@ -346,6 +361,12 @@ public sealed class UploadFiscalCredentialCommandHandler(IUserAccessService acce
 
         if (content.Length == 0)
             return AppResult<string>.Fail("empty_file", "El archivo fiscal está vacío.");
+        if (content.Length > Release6Helpers.MaxFiscalCredentialBytes)
+            return AppResult<string>.Fail("file_too_large", $"El archivo fiscal supera el límite de {Release6Helpers.MaxFiscalCredentialBytes / (1024 * 1024)} MB.");
+        if (!Release6Helpers.IsAllowedFiscalCredentialExtension(request.FileName, request.IsPrivateKey))
+            return AppResult<string>.Fail("invalid_extension", request.IsPrivateKey
+                ? "La clave privada debe ser .key o .pem."
+                : "El certificado debe ser .crt, .cer, .pem, .pfx o .p12.");
 
         var reference = await store.SaveAsync(scope.AccountId, request.FileName, content, request.IsPrivateKey, ct);
         return AppResult<string>.Ok(reference);

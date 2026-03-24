@@ -159,8 +159,16 @@ public sealed class FiscalIntegrationService(
 
     private string ResolveStoredPath(string reference)
     {
-        var normalized = (reference ?? string.Empty).Replace('/', Path.DirectorySeparatorChar);
-        return Path.Combine(environment.ContentRootPath, "App_Data", "fiscal", normalized);
+        var normalized = (reference ?? string.Empty).Replace('/', Path.DirectorySeparatorChar).Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            throw new InvalidOperationException("La referencia del archivo fiscal está vacía.");
+
+        var fiscalRoot = Path.GetFullPath(Path.Combine(environment.ContentRootPath, "App_Data", "fiscal"));
+        var fullPath = Path.GetFullPath(Path.Combine(fiscalRoot, normalized));
+        if (!fullPath.StartsWith(fiscalRoot, StringComparison.Ordinal))
+            throw new InvalidOperationException("La referencia del archivo fiscal no es válida.");
+
+        return fullPath;
     }
 
     private static string BuildLoginTicketRequest()

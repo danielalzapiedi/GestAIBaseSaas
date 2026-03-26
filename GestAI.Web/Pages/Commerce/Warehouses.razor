@@ -1,6 +1,8 @@
 @page "/warehouses"
+@using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
 @inject ApiClient Api
+@inject IJSRuntime JS
 
 <PageTitle>Depósitos</PageTitle>
 
@@ -10,8 +12,15 @@
         <div class="page-hero-subtitle">Gestioná depósitos por sucursal y definí cuál es el principal de cada una.</div>
     </div>
     <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-box-seam"></i> @_result?.TotalCount ?? 0 depósitos</span>
-        <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo depósito</button>
+        @if (_showForm)
+        {
+            <button class="btn btn-outline-secondary" @onclick="Cancel"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
+        }
+        else
+        {
+            <span class="page-hero-chip"><i class="bi bi-box-seam"></i> @_result?.TotalCount ?? 0 depósitos</span>
+            <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo depósito</button>
+        }
     </div>
 </section>
 
@@ -31,6 +40,10 @@
 }
 else if (_result?.Items.Count == 0)
 {
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
     <EmptyState Title="No hay depósitos para mostrar"
                 Description="Creá depósitos para organizar stock y operación por sucursal."
                 Icon="bi-box-seam">
@@ -39,8 +52,13 @@ else if (_result?.Items.Count == 0)
 }
 else
 {
+    <NavigationLock ConfirmExternalNavigation="@(_showForm && _isDirty)" OnBeforeInternalNavigation="ConfirmInternalNavigation" />
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
     <div class="ui-split-layout">
-        <div class="card ui-data-card">
+        <div class="card ui-data-card @(_showForm ? "d-none" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -81,7 +99,7 @@ else
             </div>
         </div>
 
-        <div class="card ui-form-card @(_showForm ? "ui-editor-open" : "ui-editor-hidden")">
+        <div class="card ui-form-card @(_showForm ? "w-100 ui-editor-open" : "ui-editor-hidden")">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -101,15 +119,19 @@ else
                 }
                 else
                 {
+                    @if (!string.IsNullOrWhiteSpace(_error))
+                    {
+                        <div class="alert alert-danger" role="alert">@_error</div>
+                    }
                     <div class="row g-3">
-                        <div class="col-12"><label class="form-label">Sucursal</label><select class="form-select" @bind="_form.BranchId">@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
-                        <div class="col-12"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" /></div>
-                        <div class="col-md-6"><label class="form-label d-block">Rol del depósito</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsMain" /><span>@(_form.IsMain ? "Depósito principal" : "Depósito secundario")</span></div></div>
-                        <div class="col-md-6"><label class="form-label d-block">Estado</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" /><span>@(_form.IsActive ? "Depósito activo" : "Depósito inactivo")</span></div></div>
+                        <div class="col-12"><label class="form-label">Sucursal</label><select class="form-select" @bind="_form.BranchId" @bind:after="MarkDirty">@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
+                        <div class="col-12"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" @bind:after="MarkDirty" /></div>
+                        <div class="col-md-6"><label class="form-label d-block">Rol del depósito</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsMain" @bind:after="MarkDirty" /><span>@(_form.IsMain ? "Depósito principal" : "Depósito secundario")</span></div></div>
+                        <div class="col-md-6"><label class="form-label d-block">Estado</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" @bind:after="MarkDirty" /><span>@(_form.IsActive ? "Depósito activo" : "Depósito inactivo")</span></div></div>
                     </div>
                     <div class="ui-action-bar">
                         <div class="ui-inline-actions">
-                            <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                            <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Guardar</button>
                             <button class="btn btn-outline-secondary" @onclick="Cancel">Cancelar</button>
                         </div>
                     </div>
@@ -127,9 +149,12 @@ else
     private string _status = string.Empty;
     private bool _loaded;
     private bool _showForm;
+    private bool _saving;
+    private bool _isDirty;
     private int _page = 1;
     private const int PageSize = 10;
     private WarehouseUpsertCommand _form = new();
+    private string? _error;
 
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
 
@@ -141,7 +166,16 @@ else
 
     private async Task LoadBranches()
     {
-        _branches = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>("api/commerce/branches?pageSize=100"))?.Data?.Items.Select(x => new LookupDto(x.Id, x.Name)).ToList() ?? new();
+        try
+        {
+            _error = null;
+            _branches = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>("api/commerce/branches?pageSize=100"))?.Data?.Items.Select(x => new LookupDto(x.Id, x.Name)).ToList() ?? new();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+            _branches = new();
+        }
     }
 
     private async Task Search() { _page = 1; await Load(); }
@@ -149,41 +183,115 @@ else
     private async Task Load()
     {
         _loaded = false;
-        var branch = _selectedBranchId > 0 ? $"branchId={_selectedBranchId}&" : string.Empty;
-        var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<WarehouseListItemDto>>>($"api/commerce/warehouses?{branch}search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+        try
+        {
+            _error = null;
+            var branch = _selectedBranchId > 0 ? $"branchId={_selectedBranchId}&" : string.Empty;
+            var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
+            _result = (await Api.GetAsync<AppResult<PagedResult<WarehouseListItemDto>>>($"api/commerce/warehouses?{branch}search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+            _result ??= new PagedResult<WarehouseListItemDto>(new List<WarehouseListItemDto>(), 0, _page, PageSize);
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+            _result = new PagedResult<WarehouseListItemDto>(new List<WarehouseListItemDto>(), 0, _page, PageSize);
+        }
         _loaded = true;
     }
 
     private void NewItem()
     {
+        _error = null;
         _form = new WarehouseUpsertCommand { BranchId = _branches.FirstOrDefault()?.Id ?? 0, IsActive = true };
         _showForm = true;
+        _isDirty = false;
     }
 
     private async Task Edit(WarehouseListItemDto item)
     {
-        var detail = (await Api.GetAsync<AppResult<WarehouseDetailDto>>($"api/commerce/warehouses/{item.Id}"))?.Data;
-        if (detail is null) return;
-        _form = new WarehouseUpsertCommand { Id = detail.Id, BranchId = detail.BranchId, Name = detail.Name, IsMain = detail.IsMain, IsActive = detail.IsActive };
-        _showForm = true;
+        try
+        {
+            _error = null;
+            var detail = (await Api.GetAsync<AppResult<WarehouseDetailDto>>($"api/commerce/warehouses/{item.Id}"))?.Data;
+            if (detail is null) return;
+            _form = new WarehouseUpsertCommand { Id = detail.Id, BranchId = detail.BranchId, Name = detail.Name, IsMain = detail.IsMain, IsActive = detail.IsActive };
+            _showForm = true;
+            _isDirty = false;
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private async Task Save()
     {
-        if (_form.Id == 0) await Api.PostAsync("api/commerce/warehouses", new { _form.BranchId, _form.Name, _form.IsMain, _form.IsActive });
-        else await Api.PutAsync($"api/commerce/warehouses/{_form.Id}", new { _form.Id, _form.BranchId, _form.Name, _form.IsMain, _form.IsActive });
-        _showForm = false;
-        await Load();
+        _error = ValidateEditor();
+        if (!string.IsNullOrWhiteSpace(_error))
+            return;
+
+        _saving = true;
+        try
+        {
+            if (_form.Id == 0) await Api.PostAsync("api/commerce/warehouses", new { _form.BranchId, _form.Name, _form.IsMain, _form.IsActive });
+            else await Api.PutAsync($"api/commerce/warehouses/{_form.Id}", new { _form.Id, _form.BranchId, _form.Name, _form.IsMain, _form.IsActive });
+            _showForm = false;
+            _isDirty = false;
+            await Load();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task Toggle(WarehouseListItemDto item)
     {
-        await Api.PostAsync($"api/commerce/warehouses/{item.Id}/status", new { isActive = !item.IsActive });
-        await Load();
+        try
+        {
+            _error = null;
+            await Api.PostAsync($"api/commerce/warehouses/{item.Id}/status", new { isActive = !item.IsActive });
+            await Load();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
-    private void Cancel() => _showForm = false;
+    private void Cancel()
+    {
+        _showForm = false;
+        _isDirty = false;
+        _error = null;
+    }
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
     private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+
+    private string? ValidateEditor()
+    {
+        if (_form.BranchId <= 0)
+            return "Seleccioná una sucursal para el depósito.";
+        if (string.IsNullOrWhiteSpace(_form.Name))
+            return "El nombre del depósito es obligatorio.";
+        if (_form.Name.Length > 120)
+            return "El nombre del depósito no puede superar los 120 caracteres.";
+        return null;
+    }
+
+    private void MarkDirty() => _isDirty = true;
+
+    private async ValueTask ConfirmInternalNavigation(LocationChangingContext context)
+    {
+        if (!_showForm || !_isDirty || _saving)
+            return;
+
+        var leave = await JS.InvokeAsync<bool>("confirm", "Tenés cambios sin guardar. ¿Querés salir igual?");
+        if (!leave)
+            context.PreventNavigation();
+    }
 }

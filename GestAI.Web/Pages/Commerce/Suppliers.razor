@@ -1,8 +1,10 @@
 @page "/suppliers"
 @page "/suppliers/new"
 @page "/suppliers/edit/{EditId:int}"
+@using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
 @inject ApiClient Api
+@inject IJSRuntime JS
 @inject NavigationManager Nav
 
 <PageTitle>Proveedores</PageTitle>
@@ -31,6 +33,7 @@
 }
 else if (IsEditorRoute)
 {
+    <NavigationLock ConfirmExternalNavigation="@_isDirty" OnBeforeInternalNavigation="ConfirmInternalNavigation" />
     <div class="card ui-form-card">
         <div class="card-body">
             <div class="ui-card-header">
@@ -40,16 +43,20 @@ else if (IsEditorRoute)
                     <div class="ui-card-subtitle">Completá datos básicos y estado del proveedor.</div>
                 </div>
             </div>
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="alert alert-danger" role="alert">@_error</div>
+            }
 
             <div class="row g-3">
-                <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" /></div>
-                <div class="col-md-4"><label class="form-label">CUIT/DNI</label><input class="form-control" @bind="_form.TaxId" /></div>
-                <div class="col-md-8"><label class="form-label">Teléfono</label><input class="form-control" @bind="_form.Phone" /></div>
-                <div class="col-md-4"><label class="form-label d-block">Estado</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" /><span>@(_form.IsActive ? "Proveedor activo" : "Proveedor inactivo")</span></div></div>
+                <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" @bind:after="MarkDirty" /></div>
+                <div class="col-md-4"><label class="form-label">CUIT/DNI</label><input class="form-control" @bind="_form.TaxId" @bind:after="MarkDirty" /></div>
+                <div class="col-md-8"><label class="form-label">Teléfono</label><input class="form-control" @bind="_form.Phone" @bind:after="MarkDirty" /></div>
+                <div class="col-md-4"><label class="form-label d-block">Estado</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" @bind:after="MarkDirty" /><span>@(_form.IsActive ? "Proveedor activo" : "Proveedor inactivo")</span></div></div>
             </div>
             <div class="ui-action-bar">
                 <div class="ui-inline-actions">
-                    <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                    <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Guardar</button>
                     <button class="btn btn-outline-secondary" @onclick="BackToList">Cancelar</button>
                 </div>
             </div>
@@ -58,6 +65,10 @@ else if (IsEditorRoute)
 }
 else if (_result?.Items.Count == 0)
 {
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
     <EmptyState Title="No hay proveedores"
                 Description="Creá proveedores para completar la base de abastecimiento."
                 Icon="bi-truck">
@@ -66,6 +77,10 @@ else if (_result?.Items.Count == 0)
 }
 else
 {
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
     <div class="card ui-filter-card"><div class="card-body">
         <div class="row g-2 align-items-end">
             <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre, CUIT, teléfono" /></div>
@@ -124,9 +139,12 @@ else
     private string _search = string.Empty;
     private string _status = string.Empty;
     private bool _loaded;
+    private bool _saving;
+    private bool _isDirty;
     private int _page = 1;
     private const int PageSize = 10;
     private SupplierUpsertCommand _form = new();
+    private string? _error;
 
     private bool IsNewRoute => Nav.Uri.EndsWith("/suppliers/new", StringComparison.OrdinalIgnoreCase);
     private bool IsEditorRoute => IsNewRoute || EditId.HasValue;
@@ -148,15 +166,26 @@ else
 
     private async Task Load()
     {
-        var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<SupplierListItemDto>>>($"api/commerce/suppliers?search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+        try
+        {
+            _error = null;
+            var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
+            _result = (await Api.GetAsync<AppResult<PagedResult<SupplierListItemDto>>>($"api/commerce/suppliers?search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+            _result = new PagedResult<SupplierListItemDto>(new List<SupplierListItemDto>(), 0, _page, PageSize);
+        }
     }
 
     private async Task LoadEditor()
     {
         if (IsNewRoute)
         {
+            _error = null;
             _form = new SupplierUpsertCommand { IsActive = true };
+            _isDirty = false;
             return;
         }
 
@@ -166,14 +195,23 @@ else
             return;
         }
 
-        var detail = (await Api.GetAsync<AppResult<SupplierDetailDto>>($"api/commerce/suppliers/{EditId.Value}"))?.Data;
-        if (detail is null)
+        try
         {
-            BackToList();
-            return;
-        }
+            _error = null;
+            var detail = (await Api.GetAsync<AppResult<SupplierDetailDto>>($"api/commerce/suppliers/{EditId.Value}"))?.Data;
+            if (detail is null)
+            {
+                BackToList();
+                return;
+            }
 
-        _form = new SupplierUpsertCommand { Id = detail.Id, Name = detail.Name, TaxId = detail.TaxId, Phone = detail.Phone, IsActive = detail.IsActive };
+            _form = new SupplierUpsertCommand { Id = detail.Id, Name = detail.Name, TaxId = detail.TaxId, Phone = detail.Phone, IsActive = detail.IsActive };
+            _isDirty = false;
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private void NewItem() => Nav.NavigateTo("/suppliers/new");
@@ -182,19 +220,73 @@ else
 
     private async Task Save()
     {
-        if (_form.Id == 0) await Api.PostAsync("api/commerce/suppliers", new { _form.Name, _form.TaxId, _form.Phone, _form.IsActive });
-        else await Api.PutAsync($"api/commerce/suppliers/{_form.Id}", new { _form.Id, _form.Name, _form.TaxId, _form.Phone, _form.IsActive });
+        _error = ValidateEditor();
+        if (!string.IsNullOrWhiteSpace(_error))
+            return;
 
-        BackToList();
+        _saving = true;
+        try
+        {
+            if (_form.Id == 0) await Api.PostAsync("api/commerce/suppliers", new { _form.Name, _form.TaxId, _form.Phone, _form.IsActive });
+            else await Api.PutAsync($"api/commerce/suppliers/{_form.Id}", new { _form.Id, _form.Name, _form.TaxId, _form.Phone, _form.IsActive });
+
+            _isDirty = false;
+            BackToList();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task Toggle(SupplierListItemDto item)
     {
-        await Api.PostAsync($"api/commerce/suppliers/{item.Id}/status", new { isActive = !item.IsActive });
-        await Load();
+        try
+        {
+            _error = null;
+            await Api.PostAsync($"api/commerce/suppliers/{item.Id}/status", new { isActive = !item.IsActive });
+            await Load();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
-    private void BackToList() => Nav.NavigateTo("/suppliers");
+    private void BackToList()
+    {
+        _isDirty = false;
+        Nav.NavigateTo("/suppliers");
+    }
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
     private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+
+    private string? ValidateEditor()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name))
+            return "El nombre del proveedor es obligatorio.";
+        if (_form.Name.Length > 160)
+            return "El nombre no puede superar los 160 caracteres.";
+        if (!string.IsNullOrWhiteSpace(_form.TaxId) && _form.TaxId.Length > 30)
+            return "El CUIT/DNI no puede superar los 30 caracteres.";
+        if (!string.IsNullOrWhiteSpace(_form.Phone) && _form.Phone.Length > 40)
+            return "El teléfono no puede superar los 40 caracteres.";
+        return null;
+    }
+
+    private void MarkDirty() => _isDirty = true;
+
+    private async ValueTask ConfirmInternalNavigation(LocationChangingContext context)
+    {
+        if (!_isDirty || _saving)
+            return;
+
+        var leave = await JS.InvokeAsync<bool>("confirm", "Tenés cambios sin guardar. ¿Querés salir igual?");
+        if (!leave)
+            context.PreventNavigation();
+    }
 }

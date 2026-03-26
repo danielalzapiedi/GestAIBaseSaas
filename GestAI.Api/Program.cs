@@ -15,6 +15,7 @@ using GestAI.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 using System.Text.Json;
 using QuestPDF.Infrastructure;
 
@@ -90,6 +91,21 @@ using (var scope = app.Services.CreateScope())
     var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
     var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
+    var seedAdminPassword = builder.Configuration["Seed:AdminPassword"];
+    if (string.IsNullOrWhiteSpace(seedAdminPassword))
+    {
+        seedAdminPassword = GenerateSeedPassword();
+        logger.LogWarning("Seed:AdminPassword no está configurado. Se generó una contraseña aleatoria temporal para admin.");
+    }
+
+    var seedDemoOwnerPassword = builder.Configuration["Seed:DemoOwnerPassword"];
+    if (string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
+    {
+        seedDemoOwnerPassword = GenerateSeedPassword();
+        logger.LogWarning("Seed:DemoOwnerPassword no está configurado. Se generó una contraseña aleatoria temporal para demo owner.");
+    }
+
+    logger.LogInformation("Inicializando datos seed con credenciales configurables por entorno (Seed:*).");
 
     await DbInitializer.MigrateAndSeedAsync(
         db,
@@ -98,13 +114,20 @@ using (var scope = app.Services.CreateScope())
         logger,
         new DbInitializer.SeedOptions(
             AdminEmail: "admin@local.test",
-            AdminPassword: "Admin123$",
+            AdminPassword: seedAdminPassword,
             PropertyName: "Tenant Demo",
             UnitNames: new[] { "Workspace A", "Workspace B" },
             DemoOwnerEmail: "daniel@daniel.com",
-            DemoOwnerPassword: "Temp123$"
+            DemoOwnerPassword: seedDemoOwnerPassword
         )
     );
 }
 
 app.Run();
+
+static string GenerateSeedPassword()
+{
+    const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*?";
+    var data = Enumerable.Range(0, 12).Select(_ => chars[RandomNumberGenerator.GetInt32(chars.Length)]).ToArray();
+    return new string(data);
+}

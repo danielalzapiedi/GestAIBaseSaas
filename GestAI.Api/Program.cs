@@ -94,6 +94,7 @@ using (var scope = app.Services.CreateScope())
     var seedAdminPassword = builder.Configuration["Seed:AdminPassword"];
     var seedDemoOwnerPassword = builder.Configuration["Seed:DemoOwnerPassword"];
     var isDevelopment = app.Environment.IsDevelopment();
+    var logGeneratedSeedPasswords = builder.Configuration.GetValue<bool>("Seed:LogGeneratedPasswords");
 
     if (string.IsNullOrWhiteSpace(seedAdminPassword) || string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
     {
@@ -105,13 +106,27 @@ using (var scope = app.Services.CreateScope())
         if (string.IsNullOrWhiteSpace(seedAdminPassword))
         {
             seedAdminPassword = GenerateSeedPassword();
-            logger.LogWarning("Seed:AdminPassword no está configurado en Development. Contraseña temporal generada para admin: {Password}", seedAdminPassword);
+            if (logGeneratedSeedPasswords)
+            {
+                logger.LogWarning("Seed:AdminPassword no está configurado en Development. Contraseña temporal generada para admin: {Password}", seedAdminPassword);
+            }
+            else
+            {
+                logger.LogWarning("Seed:AdminPassword no está configurado en Development. Se generó una contraseña temporal (oculta). Para mostrarla en logs, activá Seed:LogGeneratedPasswords=true.");
+            }
         }
 
         if (string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
         {
             seedDemoOwnerPassword = GenerateSeedPassword();
-            logger.LogWarning("Seed:DemoOwnerPassword no está configurado en Development. Contraseña temporal generada para demo owner: {Password}", seedDemoOwnerPassword);
+            if (logGeneratedSeedPasswords)
+            {
+                logger.LogWarning("Seed:DemoOwnerPassword no está configurado en Development. Contraseña temporal generada para demo owner: {Password}", seedDemoOwnerPassword);
+            }
+            else
+            {
+                logger.LogWarning("Seed:DemoOwnerPassword no está configurado en Development. Se generó una contraseña temporal (oculta). Para mostrarla en logs, activá Seed:LogGeneratedPasswords=true.");
+            }
         }
     }
 

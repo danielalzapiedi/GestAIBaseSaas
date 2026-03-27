@@ -71,7 +71,7 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
+            using var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
 
             if (res.StatusCode == HttpStatusCode.NoContent)
@@ -93,7 +93,7 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
+            using var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
         }
         finally
@@ -110,7 +110,7 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
+            using var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
         }
         finally
@@ -124,7 +124,7 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
+            using var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
             return await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
         }
@@ -139,7 +139,7 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.DeleteAsync(Normalize(url), ct);
+            using var res = await _http.DeleteAsync(Normalize(url), ct);
             await EnsureSuccessOrThrowAsync(res, ct);
         }
         finally
@@ -153,7 +153,7 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.DeleteAsync(Normalize(url), ct);
+            using var res = await _http.DeleteAsync(Normalize(url), ct);
             await EnsureSuccessOrThrowAsync(res, ct);
 
             if (res.StatusCode == HttpStatusCode.NoContent)

@@ -10,8 +10,15 @@
         <div class="page-hero-subtitle">Administrá múltiples listas, precios por producto o variante y actualizaciones masivas con criterio controlado.</div>
     </div>
     <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-tags"></i> @(_result?.TotalCount ?? 0) listas</span>
-        <button class="btn btn-primary" @onclick="NewList">Nueva lista</button>
+        @if (_editorMode)
+        {
+            <button class="btn btn-outline-secondary" @onclick="BackToListMode"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
+        }
+        else
+        {
+            <span class="page-hero-chip"><i class="bi bi-tags"></i> @(_result?.TotalCount ?? 0) listas</span>
+            <button class="btn btn-primary" @onclick="NewList">Nueva lista</button>
+        }
     </div>
 </section>
 
@@ -29,7 +36,7 @@ else
     </div>
 
     <div class="ui-split-layout">
-        <div>
+        <div class="@(_editorMode ? "d-none" : string.Empty)">
             <div class="card ui-data-card mb-3">
                 <div class="card-body">
                     <div class="ui-card-header">
@@ -103,7 +110,7 @@ else
             }
         </div>
 
-        <div class="ui-section-grid">
+        <div class="ui-section-grid @(_editorMode ? "w-100" : string.Empty)">
             <div class="card ui-form-card">
                 <div class="card-body">
                     <div class="ui-card-header"><div><div class="ui-card-eyebrow">Editor</div><h5 class="ui-card-title">@(_form.Id == 0 ? "Nueva lista" : "Editar lista")</h5><div class="ui-card-subtitle">Definí nombre, criterio base y alcance del pricing.</div></div></div>
@@ -160,6 +167,7 @@ else
     private PriceListDetailDto? _selectedList;
     private List<PriceListItemDto> _items = new();
     private bool _loaded;
+    private bool _editorMode;
     private string _message = "Release 2 prepara múltiples listas sin romper el precio base existente.";
     private PriceListUpsertCommand _form = new() { BaseMode = PriceListBaseMode.SalePrice, TargetType = PriceListTargetType.Product, IsActive = true };
     private PriceListItemUpsertCommand _itemForm = new() { IsActive = true };
@@ -192,6 +200,7 @@ else
         _form = new PriceListUpsertCommand { BaseMode = PriceListBaseMode.SalePrice, TargetType = PriceListTargetType.Product, IsActive = true };
         _selectedList = null;
         _items.Clear();
+        _editorMode = true;
     }
 
     private async Task EditListAsync(int id)
@@ -203,6 +212,7 @@ else
         _form = new PriceListUpsertCommand { Id = _selectedList.Id, Name = _selectedList.Name, BaseMode = _selectedList.BaseMode, TargetType = _selectedList.TargetType, IsActive = _selectedList.IsActive };
         _items = (await Api.GetAsync<AppResult<List<PriceListItemDto>>>($"api/commerce/price-lists/{id}/items"))?.Data?.ToList() ?? new();
         _selectedItemSkuKey = CurrentSkuOptions.FirstOrDefault() is { } sku ? ToSkuKey(sku) : string.Empty;
+        _editorMode = true;
     }
 
     private async Task SaveListAsync()
@@ -249,6 +259,7 @@ else
     }
 
     private void FocusManualPrice() { }
+    private void BackToListMode() => _editorMode = false;
 
     private static string ToSkuKey(InventorySkuLookupDto sku) => $"{sku.ProductId}:{sku.ProductVariantId?.ToString() ?? "0"}";
     private static (int ProductId, int? VariantId) ParseSkuKey(string? value)

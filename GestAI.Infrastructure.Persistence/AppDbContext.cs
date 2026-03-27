@@ -54,7 +54,7 @@ public class AppDbContext : IdentityDbContext<User>, IAppDbContext
 
     public async Task<IDbContextTransactionAdapter> BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken ct = default)
     {
-        if (Database.IsInMemory())
+        if (string.Equals(Database.ProviderName, "Microsoft.EntityFrameworkCore.InMemory", StringComparison.Ordinal))
             return NoOpTxAdapter.Instance;
 
         var tx = await Database.BeginTransactionAsync(isolationLevel, ct);

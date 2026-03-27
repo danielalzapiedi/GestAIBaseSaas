@@ -1,8 +1,10 @@
 @page "/branches"
 @page "/branches/new"
 @page "/branches/edit/{EditId:int}"
+@using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
 @inject ApiClient Api
+@inject IJSRuntime JS
 @inject NavigationManager Nav
 
 <PageTitle>Sucursales</PageTitle>
@@ -31,6 +33,7 @@
 }
 else if (IsEditorRoute)
 {
+    <NavigationLock ConfirmExternalNavigation="@_isDirty" OnBeforeInternalNavigation="@ConfirmInternalNavigation" />
     <div class="card ui-form-card">
         <div class="card-body">
             <div class="ui-card-header">
@@ -40,15 +43,19 @@ else if (IsEditorRoute)
                     <div class="ui-card-subtitle">Completá los datos básicos de la sucursal.</div>
                 </div>
             </div>
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="alert alert-danger" role="alert">@_error</div>
+            }
 
             <div class="row g-3">
-                <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" /></div>
-                <div class="col-md-4"><label class="form-label">Código</label><input class="form-control" @bind="_form.Code" /></div>
-                <div class="col-md-6"><label class="form-label d-block">Estado</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" /><span>@(_form.IsActive ? "Sucursal activa" : "Sucursal inactiva")</span></div></div>
+                <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" @bind:after="MarkDirty" /></div>
+                <div class="col-md-4"><label class="form-label">Código</label><input class="form-control" @bind="_form.Code" @bind:after="MarkDirty" /></div>
+                <div class="col-md-6"><label class="form-label d-block">Estado</label><div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" @bind:after="MarkDirty" /><span>@(_form.IsActive ? "Sucursal activa" : "Sucursal inactiva")</span></div></div>
             </div>
             <div class="ui-action-bar">
                 <div class="ui-inline-actions">
-                    <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                    <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Guardar</button>
                     <button class="btn btn-outline-secondary" @onclick="BackToList">Cancelar</button>
                 </div>
             </div>
@@ -57,6 +64,10 @@ else if (IsEditorRoute)
 }
 else if (_result?.Items.Count == 0)
 {
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
     <EmptyState Title="No hay sucursales para mostrar"
                 Description="Creá la primera sucursal para empezar a organizar la operación."
                 Icon="bi-shop">
@@ -65,6 +76,10 @@ else if (_result?.Items.Count == 0)
 }
 else
 {
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
     <div class="card ui-filter-card"><div class="card-body">
         <div class="row g-2 align-items-end">
             <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre o código" /></div>
@@ -123,9 +138,12 @@ else
     private string _search = string.Empty;
     private string _status = string.Empty;
     private bool _loaded;
+    private bool _saving;
+    private bool _isDirty;
     private int _page = 1;
     private const int PageSize = 10;
     private BranchUpsertCommand _form = new();
+    private string? _error;
 
     private bool IsNewRoute => Nav.Uri.EndsWith("/branches/new", StringComparison.OrdinalIgnoreCase);
     private bool IsEditorRoute => IsNewRoute || EditId.HasValue;
@@ -147,15 +165,26 @@ else
 
     private async Task Load()
     {
-        var isActive = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>($"api/commerce/branches?search={Uri.EscapeDataString(_search ?? string.Empty)}{isActive}&page={_page}&pageSize={PageSize}"))?.Data;
+        try
+        {
+            _error = null;
+            var isActive = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
+            _result = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>($"api/commerce/branches?search={Uri.EscapeDataString(_search ?? string.Empty)}{isActive}&page={_page}&pageSize={PageSize}"))?.Data;
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+            _result = new PagedResult<BranchListItemDto>(new List<BranchListItemDto>(), 0, _page, PageSize);
+        }
     }
 
     private async Task LoadEditor()
     {
         if (IsNewRoute)
         {
+            _error = null;
             _form = new BranchUpsertCommand { IsActive = true };
+            _isDirty = false;
             return;
         }
 
@@ -165,14 +194,23 @@ else
             return;
         }
 
-        var detail = (await Api.GetAsync<AppResult<BranchDetailDto>>($"api/commerce/branches/{EditId.Value}"))?.Data;
-        if (detail is null)
+        try
         {
-            BackToList();
-            return;
-        }
+            _error = null;
+            var detail = (await Api.GetAsync<AppResult<BranchDetailDto>>($"api/commerce/branches/{EditId.Value}"))?.Data;
+            if (detail is null)
+            {
+                BackToList();
+                return;
+            }
 
-        _form = new BranchUpsertCommand { Id = detail.Id, Name = detail.Name, Code = detail.Code, IsActive = detail.IsActive };
+            _form = new BranchUpsertCommand { Id = detail.Id, Name = detail.Name, Code = detail.Code, IsActive = detail.IsActive };
+            _isDirty = false;
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private void NewItem() => Nav.NavigateTo("/branches/new");
@@ -181,19 +219,71 @@ else
 
     private async Task Save()
     {
-        if (_form.Id == 0) await Api.PostAsync("api/commerce/branches", new { _form.Name, _form.Code, _form.IsActive });
-        else await Api.PutAsync($"api/commerce/branches/{_form.Id}", new { _form.Id, _form.Name, _form.Code, _form.IsActive });
+        _error = ValidateEditor();
+        if (!string.IsNullOrWhiteSpace(_error))
+            return;
 
-        BackToList();
+        _saving = true;
+        try
+        {
+            if (_form.Id == 0) await Api.PostAsync("api/commerce/branches", new { _form.Name, _form.Code, _form.IsActive });
+            else await Api.PutAsync($"api/commerce/branches/{_form.Id}", new { _form.Id, _form.Name, _form.Code, _form.IsActive });
+
+            _isDirty = false;
+            BackToList();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task Toggle(BranchListItemDto item)
     {
-        await Api.PostAsync($"api/commerce/branches/{item.Id}/status", new { isActive = !item.IsActive });
-        await Load();
+        try
+        {
+            _error = null;
+            await Api.PostAsync($"api/commerce/branches/{item.Id}/status", new { isActive = !item.IsActive });
+            await Load();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
-    private void BackToList() => Nav.NavigateTo("/branches");
+    private void BackToList()
+    {
+        _isDirty = false;
+        Nav.NavigateTo("/branches");
+    }
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
     private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+
+    private string? ValidateEditor()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Name))
+            return "El nombre de la sucursal es obligatorio.";
+        if (_form.Name.Length > 120)
+            return "El nombre no puede superar los 120 caracteres.";
+        if (!string.IsNullOrWhiteSpace(_form.Code) && _form.Code.Length > 32)
+            return "El código no puede superar los 32 caracteres.";
+        return null;
+    }
+
+    private void MarkDirty() => _isDirty = true;
+
+    private async Task ConfirmInternalNavigation(LocationChangingContext context)
+    {
+        if (!_isDirty || _saving)
+            return;
+
+        var leave = await JS.InvokeAsync<bool>("confirm", "Tenés cambios sin guardar. ¿Querés salir igual?");
+        if (!leave)
+            context.PreventNavigation();
+    }
 }

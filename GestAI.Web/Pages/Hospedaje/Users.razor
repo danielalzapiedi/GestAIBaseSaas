@@ -1,6 +1,9 @@
 @page "/users"
+@using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
+@using GestAI.Web.Security
 @inject ApiClient Api
+@inject IJSRuntime JS
 
 <PageTitle>Usuarios</PageTitle>
 
@@ -10,8 +13,15 @@
         <div class="page-hero-subtitle">Administrá accesos, roles y módulos disponibles para cada usuario del tenant.</div>
     </div>
     <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-people"></i> @_items.Count usuarios</span>
-        <button class="btn btn-primary" @onclick="NewUser"><i class="bi bi-plus-circle me-2"></i>Nuevo usuario</button>
+        @if (_showForm)
+        {
+            <button class="btn btn-outline-secondary" @onclick="Cancel"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
+        }
+        else
+        {
+            <span class="page-hero-chip"><i class="bi bi-people"></i> @_items.Count usuarios</span>
+            <button class="btn btn-primary" @onclick="NewUser"><i class="bi bi-plus-circle me-2"></i>Nuevo usuario</button>
+        }
     </div>
 </section>
 
@@ -29,8 +39,9 @@ else if (_items.Count == 0)
 }
 else
 {
+    <NavigationLock ConfirmExternalNavigation="@(_showForm && _isDirty)" OnBeforeInternalNavigation="@ConfirmInternalNavigation" />
     <div class="ui-split-layout">
-        <div class="card ui-data-card">
+        <div class="card ui-data-card @(_showForm ? "d-none" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -68,7 +79,7 @@ else
             </div>
         </div>
 
-        <div class="card ui-form-card">
+        <div class="card ui-form-card @(_showForm ? "w-100" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -88,10 +99,11 @@ else
                 }
                 else
                 {
+                    <FormFeedback Error="@_error" Success="@_success" />
                     <div class="row g-3">
-                        <div class="col-md-6"><label class="form-label">Nombre</label><input class="form-control" placeholder="Nombre" @bind="_form.Nombre" /></div>
-                        <div class="col-md-6"><label class="form-label">Apellido</label><input class="form-control" placeholder="Apellido" @bind="_form.Apellido" /></div>
-                        <div class="col-12"><label class="form-label">Email</label><input class="form-control" placeholder="Email" @bind="_form.Email" /></div>
+                        <div class="col-md-6"><label class="form-label">Nombre</label><input class="form-control" placeholder="Nombre" @bind="_form.Nombre" @bind:after="MarkDirty" /></div>
+                        <div class="col-md-6"><label class="form-label">Apellido</label><input class="form-control" placeholder="Apellido" @bind="_form.Apellido" @bind:after="MarkDirty" /></div>
+                        <div class="col-12"><label class="form-label">Email</label><input class="form-control" placeholder="Email" @bind="_form.Email" @bind:after="MarkDirty" /></div>
                     </div>
 
                     <div class="row g-3 mt-1">
@@ -106,11 +118,15 @@ else
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Password temporal</label>
-                            <input class="form-control" placeholder="Solo para altas nuevas" @bind="_form.Password" disabled="@(_form.UserId is not null)" />
+                            <input class="form-control" placeholder="Solo para altas nuevas" @bind="_form.Password" @bind:after="MarkDirty" disabled="@(_form.UserId is not null)" />
+                            @if (string.IsNullOrWhiteSpace(_form.UserId))
+                            {
+                                <div class="form-text">Se genera automáticamente una contraseña temporal segura. Compartila por un canal seguro.</div>
+                            }
                         </div>
                         <div class="col-12">
                             <label class="form-label d-block">Estado</label>
-                            <div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" /><span>@(_form.IsActive ? "Usuario activo" : "Usuario inactivo")</span></div>
+                            <div class="ui-toggle-field"><input type="checkbox" class="form-check-input" @bind="_form.IsActive" @bind:after="MarkDirty" /><span>@(_form.IsActive ? "Usuario activo" : "Usuario inactivo")</span></div>
                         </div>
                     </div>
 
@@ -138,7 +154,7 @@ else
 
                     <div class="ui-action-bar">
                         <div class="ui-inline-actions">
-                            <button class="btn btn-primary" @onclick="Save">Guardar</button>
+                            <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Guardar</button>
                             <button class="btn btn-outline-secondary" @onclick="Cancel">Cancelar</button>
                         </div>
                         <div class="ui-table-meta">Tip: usá permisos mínimos para cada empleado.</div>
@@ -152,8 +168,12 @@ else
 @code {
     private bool _loaded;
     private bool _showForm;
+    private bool _saving;
+    private bool _isDirty;
     private List<AccountUserListItemDto> _items = new();
     private UpsertAccountUserCommand _form = new();
+    private string? _error;
+    private string? _success;
     private static readonly List<SaasModule> _tenantModules = Enum.GetValues<SaasModule>().Where(x => x != SaasModule.PlatformTenants).ToList();
     private static readonly List<SaasModule> _defaultEmployeeModules = new()
     {
@@ -176,18 +196,23 @@ else
 
     private void NewUser()
     {
+        _error = null;
+        _success = null;
         _form = new UpsertAccountUserCommand
         {
             IsActive = true,
             Role = InternalUserRole.Employee,
             AllowedModules = _defaultEmployeeModules.ToList(),
-            Password = "Temp123$"
+            Password = GenerateTemporaryPassword()
         };
         _showForm = true;
+        _isDirty = false;
     }
 
     private void Edit(AccountUserListItemDto u)
     {
+        _error = null;
+        _success = null;
         var parts = (u.DisplayName ?? string.Empty).Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
         _form = new UpsertAccountUserCommand
         {
@@ -200,20 +225,57 @@ else
             AllowedModules = u.AllowedModules.ToList()
         };
         _showForm = true;
+        _isDirty = false;
     }
 
     private async Task Save()
     {
-        if (string.IsNullOrWhiteSpace(_form.UserId)) await Api.PostAsync("api/saas/users", _form);
-        else await Api.PutAsync($"api/saas/users/{_form.UserId}", _form);
-        _showForm = false;
-        await Load();
+        _error = ValidateForm();
+        _success = null;
+        if (!string.IsNullOrWhiteSpace(_error))
+            return;
+
+        _saving = true;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_form.UserId))
+            {
+                await Api.PostAsync("api/saas/users", _form);
+                _success = "Usuario creado correctamente. Compartí las credenciales temporales por un canal seguro.";
+            }
+            else
+            {
+                await Api.PutAsync($"api/saas/users/{_form.UserId}", _form);
+                _success = "Usuario actualizado correctamente.";
+            }
+
+            _showForm = false;
+            _isDirty = false;
+            await Load();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private async Task Toggle(AccountUserListItemDto u)
     {
-        await Api.PostAsync($"api/saas/users/{u.UserId}/status", new { isActive = !u.IsActive });
-        await Load();
+        _error = null;
+        _success = null;
+        try
+        {
+            await Api.PostAsync($"api/saas/users/{u.UserId}/status", new { isActive = !u.IsActive });
+            await Load();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
     }
 
     private void OnRoleChanged(ChangeEventArgs args)
@@ -225,6 +287,7 @@ else
         _form.AllowedModules = role == InternalUserRole.Owner
             ? _tenantModules.ToList()
             : (_form.AllowedModules.Count > 0 ? _form.AllowedModules.Where(x => x != SaasModule.PlatformTenants).Distinct().ToList() : _defaultEmployeeModules.ToList());
+        _isDirty = true;
     }
 
     private void ToggleModule(SaasModule module, object? value)
@@ -239,9 +302,34 @@ else
         {
             _form.AllowedModules.Remove(module);
         }
+
+        _isDirty = true;
     }
 
-    private void Cancel() => _showForm = false;
+    private void Cancel()
+    {
+        _showForm = false;
+        _isDirty = false;
+        _error = null;
+    }
+
+    private string? ValidateForm()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Nombre) || string.IsNullOrWhiteSpace(_form.Apellido))
+            return "Completá nombre y apellido.";
+        if (string.IsNullOrWhiteSpace(_form.Email) || !_form.Email.Contains('@'))
+            return "Ingresá un email válido.";
+        if (string.IsNullOrWhiteSpace(_form.UserId) && (string.IsNullOrWhiteSpace(_form.Password) || _form.Password.Length < 8))
+            return "La contraseña temporal debe tener al menos 8 caracteres.";
+        if (_form.Role == InternalUserRole.Employee && _form.AllowedModules.Count == 0)
+            return "Asigná al menos un módulo para usuarios con rol Empleado.";
+        return null;
+    }
+
+    private static string GenerateTemporaryPassword()
+    {
+        return PasswordGenerator.GenerateTemporaryPassword();
+    }
 
     private static string GetModuleLabel(SaasModule module) => module switch
     {
@@ -263,4 +351,16 @@ else
         => user.Role == InternalUserRole.Owner
             ? "Acceso completo"
             : string.Join(", ", user.AllowedModules.Select(GetModuleLabel));
+
+    private void MarkDirty() => _isDirty = true;
+
+    private async Task ConfirmInternalNavigation(LocationChangingContext context)
+    {
+        if (!_showForm || !_isDirty || _saving)
+            return;
+
+        var leave = await JS.InvokeAsync<bool>("confirm", "Tenés cambios sin guardar. ¿Querés salir igual?");
+        if (!leave)
+            context.PreventNavigation();
+    }
 }

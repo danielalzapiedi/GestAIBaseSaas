@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace GestAI.Web;
 
@@ -19,6 +20,19 @@ public sealed class ApiClient
     public event Action<string>? OnToast;
     public void Toast(string message) => OnToast?.Invoke(message);
 
+    public sealed class ApiClientException : Exception
+    {
+        public ApiClientException(string message, HttpStatusCode statusCode, string? errorCode = null)
+            : base(message)
+        {
+            StatusCode = statusCode;
+            ErrorCode = errorCode;
+        }
+
+        public HttpStatusCode StatusCode { get; }
+        public string? ErrorCode { get; }
+    }
+
     private static string Normalize(string url)
         => (url ?? string.Empty).TrimStart('/');
 
@@ -27,7 +41,9 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            return await _http.GetFromJsonAsync<T>(Normalize(url), ct);
+            using var res = await _http.GetAsync(Normalize(url), ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
+            return await res.Content.ReadFromJsonAsync<T>(cancellationToken: ct);
         }
         finally
         {
@@ -40,7 +56,9 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            return await _http.GetByteArrayAsync(Normalize(url), ct);
+            using var res = await _http.GetAsync(Normalize(url), ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
+            return await res.Content.ReadAsByteArrayAsync(ct);
         }
         finally
         {
@@ -53,8 +71,8 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
-            res.EnsureSuccessStatusCode();
+            using var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
 
             if (res.StatusCode == HttpStatusCode.NoContent)
                 return default;
@@ -75,8 +93,8 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
-            res.EnsureSuccessStatusCode();
+            using var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
         }
         finally
         {
@@ -92,8 +110,8 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
-            res.EnsureSuccessStatusCode();
+            using var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
         }
         finally
         {
@@ -106,8 +124,8 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
-            res.EnsureSuccessStatusCode();
+            using var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
             return await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
         }
         finally
@@ -121,8 +139,8 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.DeleteAsync(Normalize(url), ct);
-            res.EnsureSuccessStatusCode();
+            using var res = await _http.DeleteAsync(Normalize(url), ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
         }
         finally
         {
@@ -135,8 +153,8 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            var res = await _http.DeleteAsync(Normalize(url), ct);
-            res.EnsureSuccessStatusCode();
+            using var res = await _http.DeleteAsync(Normalize(url), ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
 
             if (res.StatusCode == HttpStatusCode.NoContent)
                 return default;
@@ -148,4 +166,49 @@ public sealed class ApiClient
             SetBusy(false);
         }
     }
+
+    private static async Task EnsureSuccessOrThrowAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var payload = await response.Content.ReadAsStringAsync(ct);
+        if (!string.IsNullOrWhiteSpace(payload))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<ApiErrorEnvelope>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (parsed is not null && !string.IsNullOrWhiteSpace(parsed.Message))
+                    throw new ApiClientException(parsed.Message!, response.StatusCode, parsed.ErrorCode);
+
+                var problem = JsonSerializer.Deserialize<ApiProblemDetails>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (problem is not null)
+                {
+                    if (problem.Errors is { Count: > 0 })
+                    {
+                        var first = problem.Errors.FirstOrDefault(x => x.Value is { Length: > 0 });
+                        if (first.Value is { Length: > 0 })
+                            throw new ApiClientException(first.Value[0], response.StatusCode, first.Key);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(problem.Detail))
+                        throw new ApiClientException(problem.Detail!, response.StatusCode);
+
+                    if (!string.IsNullOrWhiteSpace(problem.Title))
+                        throw new ApiClientException(problem.Title!, response.StatusCode);
+                }
+            }
+            catch (JsonException)
+            {
+                var plain = payload.Trim();
+                if (!string.IsNullOrWhiteSpace(plain))
+                    throw new ApiClientException(plain.Length > 250 ? plain[..250] : plain, response.StatusCode);
+            }
+        }
+
+        throw new ApiClientException($"Error HTTP {(int)response.StatusCode}.", response.StatusCode);
+    }
+
+    private sealed record ApiErrorEnvelope(bool Success, string? ErrorCode, string? Message);
+    private sealed record ApiProblemDetails(string? Title, string? Detail, Dictionary<string, string[]>? Errors);
 }

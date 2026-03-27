@@ -15,6 +15,7 @@ using GestAI.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 using System.Text.Json;
 using QuestPDF.Infrastructure;
 
@@ -90,6 +91,46 @@ using (var scope = app.Services.CreateScope())
     var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
     var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
+    var seedAdminPassword = builder.Configuration["Seed:AdminPassword"];
+    var seedDemoOwnerPassword = builder.Configuration["Seed:DemoOwnerPassword"];
+    var isDevelopment = app.Environment.IsDevelopment();
+    var logGeneratedSeedPasswords = builder.Configuration.GetValue<bool>("Seed:LogGeneratedPasswords");
+
+    if (string.IsNullOrWhiteSpace(seedAdminPassword) || string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
+    {
+        if (!isDevelopment)
+        {
+            throw new InvalidOperationException("Faltan credenciales de seed. Configurá Seed:AdminPassword y Seed:DemoOwnerPassword.");
+        }
+
+        if (string.IsNullOrWhiteSpace(seedAdminPassword))
+        {
+            seedAdminPassword = GenerateSeedPassword();
+            if (logGeneratedSeedPasswords)
+            {
+                logger.LogWarning("Seed:AdminPassword no está configurado en Development. Contraseña temporal generada para admin: {Password}", seedAdminPassword);
+            }
+            else
+            {
+                logger.LogWarning("Seed:AdminPassword no está configurado en Development. Se generó una contraseña temporal (oculta). Para mostrarla en logs, activá Seed:LogGeneratedPasswords=true.");
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
+        {
+            seedDemoOwnerPassword = GenerateSeedPassword();
+            if (logGeneratedSeedPasswords)
+            {
+                logger.LogWarning("Seed:DemoOwnerPassword no está configurado en Development. Contraseña temporal generada para demo owner: {Password}", seedDemoOwnerPassword);
+            }
+            else
+            {
+                logger.LogWarning("Seed:DemoOwnerPassword no está configurado en Development. Se generó una contraseña temporal (oculta). Para mostrarla en logs, activá Seed:LogGeneratedPasswords=true.");
+            }
+        }
+    }
+
+    logger.LogInformation("Inicializando datos seed con credenciales configurables por entorno (Seed:*).");
 
     await DbInitializer.MigrateAndSeedAsync(
         db,
@@ -98,13 +139,41 @@ using (var scope = app.Services.CreateScope())
         logger,
         new DbInitializer.SeedOptions(
             AdminEmail: "admin@local.test",
-            AdminPassword: "Admin123$",
+            AdminPassword: seedAdminPassword,
             PropertyName: "Tenant Demo",
             UnitNames: new[] { "Workspace A", "Workspace B" },
             DemoOwnerEmail: "daniel@daniel.com",
-            DemoOwnerPassword: "Temp123$"
+            DemoOwnerPassword: seedDemoOwnerPassword
         )
     );
 }
 
 app.Run();
+
+static string GenerateSeedPassword()
+{
+    const string lower = "abcdefghijkmnopqrstuvwxyz";
+    const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const string digits = "23456789";
+    const string symbols = "!@$%*?";
+    var all = lower + upper + digits + symbols;
+
+    Span<char> chars = stackalloc char[14];
+    chars[0] = lower[RandomNumberGenerator.GetInt32(lower.Length)];
+    chars[1] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
+    chars[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
+    chars[3] = symbols[RandomNumberGenerator.GetInt32(symbols.Length)];
+
+    for (var i = 4; i < chars.Length; i++)
+    {
+        chars[i] = all[RandomNumberGenerator.GetInt32(all.Length)];
+    }
+
+    for (var i = chars.Length - 1; i > 0; i--)
+    {
+        var j = RandomNumberGenerator.GetInt32(i + 1);
+        (chars[i], chars[j]) = (chars[j], chars[i]);
+    }
+
+    return new string(chars);
+}

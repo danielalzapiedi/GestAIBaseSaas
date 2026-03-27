@@ -49,6 +49,7 @@ else
 
                 <div class="ui-form-section">
                     <div class="ui-form-section-title">Detalle</div>
+                    <FormFeedback Error="@_error" />
                     @if (_lines.Count == 0)
                     {
                         <EmptyState Title="Sin productos cargados" Description="Buscá un producto o variante para sumar líneas rápidamente." Icon="bi-basket"></EmptyState>
@@ -66,7 +67,7 @@ else
                                         <td>@line.Label</td>
                                         <td>@line.InternalCode</td>
                                         <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
-                                        <td><input class="form-control" type="number" step="0.01" @bind="line.UnitPrice" /></td>
+                                        <td><span class="fw-semibold">@line.UnitPrice.ToString("C")</span></td>
                                         <td class="fw-semibold">@line.Subtotal.ToString("C")</td>
                                         <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)">Quitar</button></td>
                                     </tr>
@@ -79,7 +80,7 @@ else
 
                 <div class="ui-action-bar">
                     <div class="ui-inline-actions">
-                        <button class="btn btn-primary" @onclick="Save">Emitir venta rápida</button>
+                        <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Emitir venta rápida</button>
                         <button class="btn btn-outline-secondary" @onclick="Clear">Limpiar</button>
                     </div>
                     <div class="ui-table-stack text-end"><span class="fw-semibold">Total @Total.ToString("C")</span><span class="ui-table-meta">@(_lines.Count == 1 ? "1 ítem" : $"{_lines.Count} ítems")</span></div>
@@ -92,7 +93,7 @@ else
                 <div class="ui-list-stack">
                     <div class="ui-check-card"><i class="bi bi-stopwatch text-primary"></i><div><strong>Mostrador</strong><div class="ui-table-meta">Venta rápida con pocas líneas y cliente ya conocido.</div></div></div>
                     <div class="ui-check-card"><i class="bi bi-search text-primary"></i><div><strong>Búsqueda directa</strong><div class="ui-table-meta">Nombre o código interno, incluyendo variantes.</div></div></div>
-                    <div class="ui-check-card"><i class="bi bi-pencil-square text-primary"></i><div><strong>Ajuste mínimo</strong><div class="ui-table-meta">Solo cantidad y precio, para no frenar la operación.</div></div></div>
+                    <div class="ui-check-card"><i class="bi bi-cash-coin text-primary"></i><div><strong>Precio catálogo</strong><div class="ui-table-meta">La venta rápida usa precio de lista vigente para evitar inconsistencias.</div></div></div>
                 </div>
             </div></div>
         </div>
@@ -108,6 +109,8 @@ else
     private DateTime _issuedAtDate = DateTime.UtcNow.Date;
     private SaleStatus _status = SaleStatus.Confirmed;
     private string? _observations;
+    private bool _saving;
+    private string? _error;
 
     private IEnumerable<CommercialSkuLookupDto> Matches => string.IsNullOrWhiteSpace(_search)
         ? (_seed.Products.Concat(_seed.Variants)).Where(x => x.IsActive).Take(8)
@@ -142,17 +145,50 @@ else
 
     private async Task Save()
     {
-        var result = await Api.PostAsync<object, AppResult<int>>("api/commerce/sales/quick", new
+        _error = null;
+        if (_customerId <= 0)
         {
-            customerId = _customerId,
-            status = _status,
-            issuedAtUtc = _issuedAtDate,
-            observations = _observations,
-            items = _lines.Select(x => new { x.ProductId, x.ProductVariantId, x.Quantity }).ToList()
-        });
+            _error = "Seleccioná un cliente antes de emitir la venta.";
+            return;
+        }
 
-        if (result?.Success == true && result.Data is > 0)
-            Navigation.NavigateTo($"/sales/{result.Data}");
+        if (_lines.Count == 0)
+        {
+            _error = "Agregá al menos un producto para emitir la venta.";
+            return;
+        }
+
+        if (_lines.Any(x => x.Quantity <= 0))
+        {
+            _error = "Todas las líneas deben tener cantidad mayor a cero.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await Api.PostAsync<object, AppResult<int>>("api/commerce/sales/quick", new
+            {
+                customerId = _customerId,
+                status = _status,
+                issuedAtUtc = _issuedAtDate,
+                observations = _observations,
+                items = _lines.Select(x => new { x.ProductId, x.ProductVariantId, x.Quantity }).ToList()
+            });
+
+            if (result?.Success == true && result.Data is > 0)
+                Navigation.NavigateTo($"/sales/{result.Data}");
+            else
+                _error = result?.Message ?? "No se pudo emitir la venta rápida.";
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private void Clear()

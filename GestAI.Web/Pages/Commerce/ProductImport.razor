@@ -10,14 +10,22 @@
         <div class="page-hero-subtitle">Carga controlada por CSV con preview previo, validaciones explícitas y soporte para variantes.</div>
     </div>
     <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-upload"></i> Preview antes de aplicar</span>
-        <span class="page-hero-chip"><i class="bi bi-shield-check"></i> Validación por fila</span>
+        @if (_showForm)
+        {
+            <button class="btn btn-outline-secondary" @onclick="CloseImportForm"><i class="bi bi-arrow-left me-2"></i>Volver al panel</button>
+        }
+        else
+        {
+            <span class="page-hero-chip"><i class="bi bi-upload"></i> Preview antes de aplicar</span>
+            <span class="page-hero-chip"><i class="bi bi-shield-check"></i> Validación por fila</span>
+            <button class="btn btn-primary" @onclick="OpenImportForm"><i class="bi bi-upload me-2"></i>Importar productos</button>
+        }
     </div>
 </section>
 
 <div class="ui-split-layout">
-    <div>
-        <div class="card ui-form-card">
+    <div class="@(_showForm ? "w-100" : string.Empty)">
+        <div class="card ui-form-card @(_showForm ? "w-100" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -26,23 +34,34 @@
                         <div class="ui-card-subtitle">Columnas soportadas: Name, InternalCode, Barcode, Description, CategoryName, Brand, UnitOfMeasure, Cost, SalePrice, MinimumStock, IsActive, VariantName, VariantInternalCode, VariantBarcode, VariantAttributes, VariantCost, VariantSalePrice. También podés repetir el mismo producto en varias filas para importar múltiples variantes.</div>
                     </div>
                 </div>
-                <div class="ui-form-section">
-                    <label class="form-label">Contenido CSV</label>
-                    <textarea class="form-control ui-preview-textarea ui-mono" @bind="_csvContent"></textarea>
-                    <div class="ui-toggle-field mt-3"><input type="checkbox" class="form-check-input" @bind="_upsertExisting" /><span>Actualizar productos/variantes existentes si ya hay coincidencia por código interno.</span></div>
-                </div>
-                <div class="ui-action-bar">
-                    <div class="ui-inline-actions">
-                        <button class="btn btn-outline-primary" @onclick="PreviewAsync">Previsualizar</button>
-                        <button class="btn btn-primary" @onclick="ApplyAsync">Aplicar importación</button>
+                @if (!_showForm)
+                {
+                    <EmptyState Title="Seleccioná una acción"
+                                Description="Usá Importar productos para abrir el formulario completo de carga."
+                                Icon="bi-upload">
+                        <button class="btn btn-primary" @onclick="OpenImportForm">Importar productos</button>
+                    </EmptyState>
+                }
+                else
+                {
+                    <div class="ui-form-section">
+                        <label class="form-label">Contenido CSV</label>
+                        <textarea class="form-control ui-preview-textarea ui-mono" @bind="_csvContent"></textarea>
+                        <div class="ui-toggle-field mt-3"><input type="checkbox" class="form-check-input" @bind="_upsertExisting" /><span>Actualizar productos/variantes existentes si ya hay coincidencia por código interno.</span></div>
                     </div>
-                    <span class="ui-table-meta">@_message</span>
-                </div>
+                    <div class="ui-action-bar">
+                        <div class="ui-inline-actions">
+                            <button class="btn btn-outline-primary" @onclick="PreviewAsync">Previsualizar</button>
+                            <button class="btn btn-primary" @onclick="ApplyAsync">Aplicar importación</button>
+                        </div>
+                        <span class="ui-table-meta">@_message</span>
+                    </div>
+                }
             </div>
         </div>
     </div>
 
-    <div class="ui-section-grid">
+    <div class="ui-section-grid @(_showForm ? "d-none" : string.Empty)">
         <div class="card">
             <div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Plantilla sugerida</div><h5 class="ui-card-title">Ejemplo</h5></div></div>
@@ -95,6 +114,7 @@
 @code {
     private ProductImportPreviewDto? _preview;
     private ProductImportResultDto? _result;
+    private bool _showForm;
     private bool _upsertExisting;
     private string _message = "Primero conviene ejecutar preview para validar categorías, unidades y duplicados.";
     private string _csvContent = SampleCsv;
@@ -117,4 +137,7 @@
         _result = result?.Data;
         _message = result?.Success == true ? "Importación aplicada correctamente." : result?.Message ?? "No se pudo aplicar la importación.";
     }
+
+    private void OpenImportForm() => _showForm = true;
+    private void CloseImportForm() => _showForm = false;
 }

@@ -92,17 +92,27 @@ using (var scope = app.Services.CreateScope())
     var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
     var seedAdminPassword = builder.Configuration["Seed:AdminPassword"];
-    if (string.IsNullOrWhiteSpace(seedAdminPassword))
-    {
-        seedAdminPassword = GenerateSeedPassword();
-        logger.LogWarning("Seed:AdminPassword no está configurado. Se generó una contraseña aleatoria temporal para admin.");
-    }
-
     var seedDemoOwnerPassword = builder.Configuration["Seed:DemoOwnerPassword"];
-    if (string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
+    var isDevelopment = app.Environment.IsDevelopment();
+
+    if (string.IsNullOrWhiteSpace(seedAdminPassword) || string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
     {
-        seedDemoOwnerPassword = GenerateSeedPassword();
-        logger.LogWarning("Seed:DemoOwnerPassword no está configurado. Se generó una contraseña aleatoria temporal para demo owner.");
+        if (!isDevelopment)
+        {
+            throw new InvalidOperationException("Faltan credenciales de seed. Configurá Seed:AdminPassword y Seed:DemoOwnerPassword.");
+        }
+
+        if (string.IsNullOrWhiteSpace(seedAdminPassword))
+        {
+            seedAdminPassword = GenerateSeedPassword();
+            logger.LogWarning("Seed:AdminPassword no está configurado en Development. Contraseña temporal generada para admin: {Password}", seedAdminPassword);
+        }
+
+        if (string.IsNullOrWhiteSpace(seedDemoOwnerPassword))
+        {
+            seedDemoOwnerPassword = GenerateSeedPassword();
+            logger.LogWarning("Seed:DemoOwnerPassword no está configurado en Development. Contraseña temporal generada para demo owner: {Password}", seedDemoOwnerPassword);
+        }
     }
 
     logger.LogInformation("Inicializando datos seed con credenciales configurables por entorno (Seed:*).");
@@ -127,7 +137,28 @@ app.Run();
 
 static string GenerateSeedPassword()
 {
-    const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*?";
-    var data = Enumerable.Range(0, 12).Select(_ => chars[RandomNumberGenerator.GetInt32(chars.Length)]).ToArray();
-    return new string(data);
+    const string lower = "abcdefghijkmnopqrstuvwxyz";
+    const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const string digits = "23456789";
+    const string symbols = "!@$%*?";
+    var all = lower + upper + digits + symbols;
+
+    Span<char> chars = stackalloc char[14];
+    chars[0] = lower[RandomNumberGenerator.GetInt32(lower.Length)];
+    chars[1] = upper[RandomNumberGenerator.GetInt32(upper.Length)];
+    chars[2] = digits[RandomNumberGenerator.GetInt32(digits.Length)];
+    chars[3] = symbols[RandomNumberGenerator.GetInt32(symbols.Length)];
+
+    for (var i = 4; i < chars.Length; i++)
+    {
+        chars[i] = all[RandomNumberGenerator.GetInt32(all.Length)];
+    }
+
+    for (var i = chars.Length - 1; i > 0; i--)
+    {
+        var j = RandomNumberGenerator.GetInt32(i + 1);
+        (chars[i], chars[j]) = (chars[j], chars[i]);
+    }
+
+    return new string(chars);
 }

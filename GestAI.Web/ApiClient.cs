@@ -41,7 +41,9 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            return await _http.GetFromJsonAsync<T>(Normalize(url), ct);
+            using var res = await _http.GetAsync(Normalize(url), ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
+            return await res.Content.ReadFromJsonAsync<T>(cancellationToken: ct);
         }
         finally
         {
@@ -54,7 +56,9 @@ public sealed class ApiClient
         try
         {
             SetBusy(true);
-            return await _http.GetByteArrayAsync(Normalize(url), ct);
+            using var res = await _http.GetAsync(Normalize(url), ct);
+            await EnsureSuccessOrThrowAsync(res, ct);
+            return await res.Content.ReadAsByteArrayAsync(ct);
         }
         finally
         {

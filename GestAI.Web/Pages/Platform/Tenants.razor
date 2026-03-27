@@ -1,5 +1,6 @@
 @page "/platform/tenants"
 @using GestAI.Web.Dtos
+@using GestAI.Web.Security
 @inject ApiClient Api
 
 <PageTitle>Tenants</PageTitle>
@@ -285,7 +286,6 @@ else
 
     private static string GenerateTemporaryPassword()
     {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@$%*?";
-        return new string(Enumerable.Range(0, 12).Select(_ => chars[System.Security.Cryptography.RandomNumberGenerator.GetInt32(chars.Length)]).ToArray());
+        return PasswordGenerator.GenerateTemporaryPassword();
     }
 }

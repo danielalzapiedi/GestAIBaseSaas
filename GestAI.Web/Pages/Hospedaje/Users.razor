@@ -1,6 +1,7 @@
 @page "/users"
 @using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
+@using GestAI.Web.Security
 @inject ApiClient Api
 @inject IJSRuntime JS
 
@@ -327,26 +328,7 @@ else
 
     private static string GenerateTemporaryPassword()
     {
-        var lower = "abcdefghijkmnopqrstuvwxyz";
-        var upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-        var digits = "23456789";
-        var symbols = "!@$%*?";
-        var all = lower + upper + digits + symbols;
-        var chars = new[]
-        {
-            lower[System.Security.Cryptography.RandomNumberGenerator.GetInt32(lower.Length)],
-            upper[System.Security.Cryptography.RandomNumberGenerator.GetInt32(upper.Length)],
-            digits[System.Security.Cryptography.RandomNumberGenerator.GetInt32(digits.Length)],
-            symbols[System.Security.Cryptography.RandomNumberGenerator.GetInt32(symbols.Length)],
-            all[System.Security.Cryptography.RandomNumberGenerator.GetInt32(all.Length)],
-            all[System.Security.Cryptography.RandomNumberGenerator.GetInt32(all.Length)],
-            all[System.Security.Cryptography.RandomNumberGenerator.GetInt32(all.Length)],
-            all[System.Security.Cryptography.RandomNumberGenerator.GetInt32(all.Length)],
-            all[System.Security.Cryptography.RandomNumberGenerator.GetInt32(all.Length)],
-            all[System.Security.Cryptography.RandomNumberGenerator.GetInt32(all.Length)]
-        };
-
-        return new string(chars.OrderBy(_ => System.Security.Cryptography.RandomNumberGenerator.GetInt32(int.MaxValue)).ToArray());
+        return PasswordGenerator.GenerateTemporaryPassword();
     }
 
     private static string GetModuleLabel(SaasModule module) => module switch

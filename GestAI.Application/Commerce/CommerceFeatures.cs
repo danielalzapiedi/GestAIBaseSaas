@@ -63,7 +63,7 @@ public sealed record ToggleSupplierStatusCommand(int Id, bool IsActive) : IReque
 
 internal static class CommerceFeatureHelpers
 {
-    public const int MaxPageSize = 100;
+    public const int MaxPageSize = 50;
 
     public static async Task<int?> GetRequiredAccountIdAsync(IUserAccessService access, CancellationToken ct)
         => await access.GetCurrentAccountIdAsync(ct);
@@ -127,208 +127,6 @@ internal static class CommerceFeatureHelpers
     }
 }
 
-public sealed class CreateTenantCommandValidator : AbstractValidator<CreateTenantCommand>
-{
-    public CreateTenantCommandValidator()
-    {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.OwnerFirstName).NotEmpty().MaximumLength(80);
-        RuleFor(x => x.OwnerLastName).NotEmpty().MaximumLength(80);
-        RuleFor(x => x.OwnerEmail).NotEmpty().EmailAddress().MaximumLength(180);
-        RuleFor(x => x.OwnerPassword).NotEmpty().MinimumLength(8);
-    }
-}
-
-public sealed class GetTenantListQueryValidator : AbstractValidator<GetTenantListQuery>
-{
-    public GetTenantListQueryValidator()
-    {
-        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
-    }
-}
-
-public sealed class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
-{
-    public UpdateTenantCommandValidator()
-    {
-        RuleFor(x => x.TenantId).GreaterThan(0);
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
-    }
-}
-
-public sealed class GetTenantListQueryHandler(IAppDbContext db, ICurrentUser current)
-    : IRequestHandler<GetTenantListQuery, AppResult<PagedResult<PlatformTenantListItemDto>>>
-{
-    public async Task<AppResult<PagedResult<PlatformTenantListItemDto>>> Handle(GetTenantListQuery request, CancellationToken ct)
-    {
-        if (!current.IsInRole("SuperAdmin"))
-            return AppResult<PagedResult<PlatformTenantListItemDto>>.Fail("forbidden", "Solo un super administrador puede ver tenants.");
-
-        var query = db.Accounts.AsNoTracking().AsQueryable();
-        if (!string.IsNullOrWhiteSpace(request.Search))
-        {
-            var search = request.Search.Trim();
-            query = query.Where(x => x.Name.Contains(search) || x.Users.Any(u => u.User.Email != null && u.User.Email.Contains(search)));
-        }
-
-        var total = await query.CountAsync(ct);
-        var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
-
-        var items = await query
-            .OrderBy(x => x.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new PlatformTenantListItemDto(
-                x.Id,
-                x.Name,
-                x.IsActive,
-                x.OwnerUserId,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => (u.Nombre + " " + u.Apellido).Trim()).FirstOrDefault() ?? string.Empty,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => u.Email ?? string.Empty).FirstOrDefault() ?? string.Empty,
-                x.CreatedAtUtc,
-                x.Users.Count(u => u.IsActive)))
-            .ToListAsync(ct);
-
-        return AppResult<PagedResult<PlatformTenantListItemDto>>.Ok(CommerceFeatureHelpers.ToPaged(items, total, page, pageSize));
-    }
-}
-
-public sealed class GetTenantByIdQueryHandler(IAppDbContext db, ICurrentUser current)
-    : IRequestHandler<GetTenantByIdQuery, AppResult<PlatformTenantDetailDto>>
-{
-    public async Task<AppResult<PlatformTenantDetailDto>> Handle(GetTenantByIdQuery request, CancellationToken ct)
-    {
-        if (!current.IsInRole("SuperAdmin")) return AppResult<PlatformTenantDetailDto>.Fail("forbidden", "Solo un super administrador puede ver tenants.");
-
-        var item = await db.Accounts.AsNoTracking()
-            .Where(x => x.Id == request.TenantId)
-            .Select(x => new PlatformTenantDetailDto(
-                x.Id,
-                x.Name,
-                x.IsActive,
-                x.OwnerUserId,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => (u.Nombre + " " + u.Apellido).Trim()).FirstOrDefault() ?? string.Empty,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => u.Email ?? string.Empty).FirstOrDefault() ?? string.Empty,
-                x.CreatedAtUtc))
-            .FirstOrDefaultAsync(ct);
-
-        return item is null
-            ? AppResult<PlatformTenantDetailDto>.Fail("not_found", "Tenant no encontrado.")
-            : AppResult<PlatformTenantDetailDto>.Ok(item);
-    }
-}
-
-public sealed class CreateTenantCommandHandler(IAppDbContext db, IIdentityService identity, IAuditService audit, ICurrentUser current)
-    : IRequestHandler<CreateTenantCommand, AppResult<int>>
-{
-    public async Task<AppResult<int>> Handle(CreateTenantCommand request, CancellationToken ct)
-    {
-        if (!current.IsInRole("SuperAdmin")) return AppResult<int>.Fail("forbidden", "Solo un super administrador puede crear tenants.");
-
-        var owner = await identity.CreateUserIfNotExistsAsync(request.OwnerEmail.Trim(), request.OwnerPassword, ct, request.OwnerFirstName.Trim(), request.OwnerLastName.Trim(), true, null, 0);
-        if (!owner.Success || string.IsNullOrWhiteSpace(owner.UserId))
-            return AppResult<int>.Fail("identity_error", owner.Error ?? "No se pudo crear el dueño del tenant.");
-
-        var account = new Account
-        {
-            Name = request.Name.Trim(),
-            OwnerUserId = owner.UserId,
-            IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow
-        };
-
-        db.Accounts.Add(account);
-        await db.SaveChangesAsync(ct);
-
-        var defaultPlanId = await db.SaasPlanDefinitions
-            .Where(x => x.Code == SaasPlanCode.Pro)
-            .Select(x => (int?)x.Id)
-            .FirstOrDefaultAsync(ct)
-            ?? await db.SaasPlanDefinitions.OrderBy(x => x.Id).Select(x => x.Id).FirstAsync(ct);
-
-        db.AccountSubscriptionPlans.Add(new AccountSubscriptionPlan
-        {
-            AccountId = account.Id,
-            PlanDefinitionId = defaultPlanId,
-            IsActive = true,
-            StartedAtUtc = DateTime.UtcNow
-        });
-
-        var existingMembership = await db.AccountUsers.FirstOrDefaultAsync(x => x.AccountId == account.Id && x.UserId == owner.UserId, ct);
-        if (existingMembership is null)
-        {
-            db.AccountUsers.Add(new AccountUser
-            {
-                AccountId = account.Id,
-                UserId = owner.UserId,
-                Role = InternalUserRole.Owner,
-                IsActive = true,
-                CanManageConfiguration = true,
-                InvitedAtUtc = DateTime.UtcNow
-            });
-        }
-
-        var ownerUser = await db.Users.FirstAsync(x => x.Id == owner.UserId, ct);
-        if (ownerUser.DefaultAccountId == 0)
-            ownerUser.DefaultAccountId = account.Id;
-
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(account.Id, null, "Account", account.Id, "created", $"Tenant creado: {account.Name}", ct);
-        return AppResult<int>.Ok(account.Id);
-    }
-}
-
-public sealed class UpdateTenantCommandHandler(IAppDbContext db, IAuditService audit, ICurrentUser current)
-    : IRequestHandler<UpdateTenantCommand, AppResult>
-{
-    public async Task<AppResult> Handle(UpdateTenantCommand request, CancellationToken ct)
-    {
-        if (!current.IsInRole("SuperAdmin")) return AppResult.Fail("forbidden", "Solo un super administrador puede editar tenants.");
-        var account = await db.Accounts.FirstOrDefaultAsync(x => x.Id == request.TenantId, ct);
-        if (account is null) return AppResult.Fail("not_found", "Tenant no encontrado.");
-        account.Name = request.Name.Trim();
-        account.IsActive = request.IsActive;
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(account.Id, null, "Account", account.Id, "updated", $"Tenant actualizado: {account.Name}", ct);
-        return AppResult.Ok();
-    }
-}
-
-public sealed class ToggleTenantStatusCommandHandler(IAppDbContext db, IAuditService audit, ICurrentUser current)
-    : IRequestHandler<ToggleTenantStatusCommand, AppResult>
-{
-    public async Task<AppResult> Handle(ToggleTenantStatusCommand request, CancellationToken ct)
-    {
-        if (!current.IsInRole("SuperAdmin")) return AppResult.Fail("forbidden", "Solo un super administrador puede cambiar el estado de tenants.");
-        var account = await db.Accounts.FirstOrDefaultAsync(x => x.Id == request.TenantId, ct);
-        if (account is null) return AppResult.Fail("not_found", "Tenant no encontrado.");
-        account.IsActive = request.IsActive;
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(account.Id, null, "Account", account.Id, request.IsActive ? "activated" : "deactivated", $"Tenant {(request.IsActive ? "activado" : "desactivado")}: {account.Name}", ct);
-        return AppResult.Ok();
-    }
-}
-
-public sealed class CreateBranchCommandValidator : AbstractValidator<CreateBranchCommand>
-{
-    public CreateBranchCommandValidator()
-    {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(40);
-    }
-}
-
-public sealed class UpdateBranchCommandValidator : AbstractValidator<UpdateBranchCommand>
-{
-    public UpdateBranchCommandValidator()
-    {
-        RuleFor(x => x.Id).GreaterThan(0);
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(160);
-        RuleFor(x => x.Code).NotEmpty().MaximumLength(40);
-    }
-}
-
 public sealed class GetBranchesQueryValidator : AbstractValidator<GetBranchesQuery>
 {
     public GetBranchesQueryValidator()
@@ -356,7 +154,7 @@ public sealed class GetBranchesQueryHandler(IAppDbContext db, IUserAccessService
 
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -496,7 +294,7 @@ public sealed class GetWarehousesQueryHandler(IAppDbContext db, IUserAccessServi
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Branch.Name).ThenBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -658,7 +456,7 @@ public sealed class GetCategoriesQueryHandler(IAppDbContext db, IUserAccessServi
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -835,11 +633,32 @@ public sealed class GetProductsQueryHandler(IAppDbContext db, IUserAccessService
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var items = await query.OrderBy(x => x.Name)
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
+        var pagedProducts = query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new ProductListItemDto(x.Id, x.Name, x.InternalCode, x.Barcode, x.Category.Name, x.Brand, x.UnitOfMeasure, x.SalePrice, x.IsActive, x.Variants.Count(v => v.IsActive)))
+            .Take(pageSize);
+
+        var activeVariantCounts = db.ProductVariants.AsNoTracking()
+            .Where(v => v.AccountId == accountId && v.IsActive)
+            .GroupBy(v => v.ProductId)
+            .Select(g => new { ProductId = g.Key, Count = g.Count() });
+
+        var items = await pagedProducts
+            .GroupJoin(activeVariantCounts,
+                product => product.Id,
+                variantCount => variantCount.ProductId,
+                (product, variantCounts) => new { product, ActiveVariants = variantCounts.Select(v => v.Count).FirstOrDefault() })
+            .Select(x => new ProductListItemDto(
+                x.product.Id,
+                x.product.Name,
+                x.product.InternalCode,
+                x.product.Barcode,
+                x.product.Category.Name,
+                x.product.Brand,
+                x.product.UnitOfMeasure,
+                x.product.SalePrice,
+                x.product.IsActive,
+                x.ActiveVariants))
             .ToListAsync(ct);
         return AppResult<PagedResult<ProductListItemDto>>.Ok(new PagedResult<ProductListItemDto>(items, total, page, pageSize));
     }
@@ -1095,288 +914,6 @@ public sealed class ToggleProductVariantStatusCommandHandler(IAppDbContext db, I
         CommerceFeatureHelpers.TouchUpdate(entity, current);
         await db.SaveChangesAsync(ct);
         await audit.WriteAsync(accountId, null, "ProductVariant", entity.Id, request.IsActive ? "activated" : "deactivated", $"Variante {(request.IsActive ? "activada" : "desactivada")}: {entity.Name}", ct);
-        return AppResult.Ok();
-    }
-}
-
-public sealed class CreateCustomerCommandValidator : AbstractValidator<CreateCustomerCommand>
-{
-    public CreateCustomerCommandValidator()
-    {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(180);
-        RuleFor(x => x.Phone).NotEmpty().MaximumLength(40);
-        RuleFor(x => x.Address).NotEmpty().MaximumLength(250);
-        RuleFor(x => x.City).NotEmpty().MaximumLength(120);
-    }
-}
-
-public sealed class UpdateCustomerCommandValidator : AbstractValidator<UpdateCustomerCommand>
-{
-    public UpdateCustomerCommandValidator()
-    {
-        RuleFor(x => x.Id).GreaterThan(0);
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(180);
-        RuleFor(x => x.Phone).NotEmpty().MaximumLength(40);
-        RuleFor(x => x.Address).NotEmpty().MaximumLength(250);
-        RuleFor(x => x.City).NotEmpty().MaximumLength(120);
-    }
-}
-
-public sealed class GetCustomersQueryValidator : AbstractValidator<GetCustomersQuery>
-{
-    public GetCustomersQueryValidator()
-    {
-        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
-    }
-}
-
-public sealed class GetCustomersQueryHandler(IAppDbContext db, IUserAccessService access)
-    : IRequestHandler<GetCustomersQuery, AppResult<PagedResult<CustomerListItemDto>>>
-{
-    public async Task<AppResult<PagedResult<CustomerListItemDto>>> Handle(GetCustomersQuery request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
-        if (!scope.Success) return AppResult<PagedResult<CustomerListItemDto>>.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var query = db.Customers.AsNoTracking().Where(x => x.AccountId == accountId);
-        if (!string.IsNullOrWhiteSpace(request.Search))
-        {
-            var search = request.Search.Trim();
-            query = query.Where(x => x.Name.Contains(search) || (x.DocumentNumber != null && x.DocumentNumber.Contains(search)) || x.Phone.Contains(search) || x.City.Contains(search));
-        }
-        if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
-        var total = await query.CountAsync(ct);
-        var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var items = await query.OrderBy(x => x.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new CustomerListItemDto(x.Id, x.Name, x.DocumentNumber, x.Phone, x.City, x.CustomerType, x.IsActive))
-            .ToListAsync(ct);
-        return AppResult<PagedResult<CustomerListItemDto>>.Ok(new PagedResult<CustomerListItemDto>(items, total, page, pageSize));
-    }
-}
-
-public sealed class GetCustomerByIdQueryHandler(IAppDbContext db, IUserAccessService access)
-    : IRequestHandler<GetCustomerByIdQuery, AppResult<CustomerDetailDto>>
-{
-    public async Task<AppResult<CustomerDetailDto>> Handle(GetCustomerByIdQuery request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
-        if (!scope.Success) return AppResult<CustomerDetailDto>.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var item = await db.Customers.AsNoTracking()
-            .Where(x => x.AccountId == accountId && x.Id == request.Id)
-            .Select(x => new CustomerDetailDto(x.Id, x.Name, x.DocumentNumber, x.Phone, x.Address, x.City, x.CustomerType, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
-            .FirstOrDefaultAsync(ct);
-        return item is null ? AppResult<CustomerDetailDto>.Fail("not_found", "Cliente no encontrado.") : AppResult<CustomerDetailDto>.Ok(item);
-    }
-}
-
-public sealed class CreateCustomerCommandHandler(IAppDbContext db, IUserAccessService access, ICurrentUser current, IAuditService audit)
-    : IRequestHandler<CreateCustomerCommand, AppResult<int>>
-{
-    public async Task<AppResult<int>> Handle(CreateCustomerCommand request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
-        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var entity = new Customer
-        {
-            AccountId = accountId,
-            Name = request.Name.Trim(),
-            DocumentNumber = string.IsNullOrWhiteSpace(request.DocumentNumber) ? null : request.DocumentNumber.Trim(),
-            Phone = request.Phone.Trim(),
-            Address = request.Address.Trim(),
-            City = request.City.Trim(),
-            CustomerType = request.CustomerType,
-            IsActive = request.IsActive
-        };
-        CommerceFeatureHelpers.TouchCreate(entity, current);
-        db.Customers.Add(entity);
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "Customer", entity.Id, "created", $"Cliente creado: {entity.Name}", ct);
-        return AppResult<int>.Ok(entity.Id);
-    }
-}
-
-public sealed class UpdateCustomerCommandHandler(IAppDbContext db, IUserAccessService access, ICurrentUser current, IAuditService audit)
-    : IRequestHandler<UpdateCustomerCommand, AppResult>
-{
-    public async Task<AppResult> Handle(UpdateCustomerCommand request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
-        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var entity = await db.Customers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
-        if (entity is null) return AppResult.Fail("not_found", "Cliente no encontrado.");
-        entity.Name = request.Name.Trim();
-        entity.DocumentNumber = string.IsNullOrWhiteSpace(request.DocumentNumber) ? null : request.DocumentNumber.Trim();
-        entity.Phone = request.Phone.Trim();
-        entity.Address = request.Address.Trim();
-        entity.City = request.City.Trim();
-        entity.CustomerType = request.CustomerType;
-        entity.IsActive = request.IsActive;
-        CommerceFeatureHelpers.TouchUpdate(entity, current);
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "Customer", entity.Id, "updated", $"Cliente actualizado: {entity.Name}", ct);
-        return AppResult.Ok();
-    }
-}
-
-public sealed class ToggleCustomerStatusCommandHandler(IAppDbContext db, IUserAccessService access, ICurrentUser current, IAuditService audit)
-    : IRequestHandler<ToggleCustomerStatusCommand, AppResult>
-{
-    public async Task<AppResult> Handle(ToggleCustomerStatusCommand request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Customers, ct);
-        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var entity = await db.Customers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
-        if (entity is null) return AppResult.Fail("not_found", "Cliente no encontrado.");
-        entity.IsActive = request.IsActive;
-        CommerceFeatureHelpers.TouchUpdate(entity, current);
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "Customer", entity.Id, request.IsActive ? "activated" : "deactivated", $"Cliente {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
-        return AppResult.Ok();
-    }
-}
-
-public sealed class CreateSupplierCommandValidator : AbstractValidator<CreateSupplierCommand>
-{
-    public CreateSupplierCommandValidator()
-    {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(180);
-        RuleFor(x => x.TaxId).NotEmpty().MaximumLength(40);
-        RuleFor(x => x.Phone).NotEmpty().MaximumLength(40);
-    }
-}
-
-public sealed class UpdateSupplierCommandValidator : AbstractValidator<UpdateSupplierCommand>
-{
-    public UpdateSupplierCommandValidator()
-    {
-        RuleFor(x => x.Id).GreaterThan(0);
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(180);
-        RuleFor(x => x.TaxId).NotEmpty().MaximumLength(40);
-        RuleFor(x => x.Phone).NotEmpty().MaximumLength(40);
-    }
-}
-
-public sealed class GetSuppliersQueryValidator : AbstractValidator<GetSuppliersQuery>
-{
-    public GetSuppliersQueryValidator()
-    {
-        CommerceFeatureHelpers.AddPagingRules(this, x => x.Page, x => x.PageSize);
-    }
-}
-
-public sealed class GetSuppliersQueryHandler(IAppDbContext db, IUserAccessService access)
-    : IRequestHandler<GetSuppliersQuery, AppResult<PagedResult<SupplierListItemDto>>>
-{
-    public async Task<AppResult<PagedResult<SupplierListItemDto>>> Handle(GetSuppliersQuery request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
-        if (!scope.Success) return AppResult<PagedResult<SupplierListItemDto>>.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var query = db.Suppliers.AsNoTracking().Where(x => x.AccountId == accountId);
-        if (!string.IsNullOrWhiteSpace(request.Search))
-        {
-            var search = request.Search.Trim();
-            query = query.Where(x => x.Name.Contains(search) || x.TaxId.Contains(search) || x.Phone.Contains(search));
-        }
-        if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
-        var total = await query.CountAsync(ct);
-        var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var items = await query.OrderBy(x => x.Name)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new SupplierListItemDto(x.Id, x.Name, x.TaxId, x.Phone, x.IsActive))
-            .ToListAsync(ct);
-        return AppResult<PagedResult<SupplierListItemDto>>.Ok(new PagedResult<SupplierListItemDto>(items, total, page, pageSize));
-    }
-}
-
-public sealed class GetSupplierByIdQueryHandler(IAppDbContext db, IUserAccessService access)
-    : IRequestHandler<GetSupplierByIdQuery, AppResult<SupplierDetailDto>>
-{
-    public async Task<AppResult<SupplierDetailDto>> Handle(GetSupplierByIdQuery request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
-        if (!scope.Success) return AppResult<SupplierDetailDto>.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var item = await db.Suppliers.AsNoTracking()
-            .Where(x => x.AccountId == accountId && x.Id == request.Id)
-            .Select(x => new SupplierDetailDto(x.Id, x.Name, x.TaxId, x.Phone, x.IsActive, x.CreatedByUserId, x.CreatedAtUtc, x.ModifiedByUserId, x.ModifiedAtUtc))
-            .FirstOrDefaultAsync(ct);
-        return item is null ? AppResult<SupplierDetailDto>.Fail("not_found", "Proveedor no encontrado.") : AppResult<SupplierDetailDto>.Ok(item);
-    }
-}
-
-public sealed class CreateSupplierCommandHandler(IAppDbContext db, IUserAccessService access, ICurrentUser current, IAuditService audit)
-    : IRequestHandler<CreateSupplierCommand, AppResult<int>>
-{
-    public async Task<AppResult<int>> Handle(CreateSupplierCommand request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
-        if (!scope.Success) return AppResult<int>.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        if (await db.Suppliers.AnyAsync(x => x.AccountId == accountId && x.TaxId == request.TaxId.Trim(), ct))
-            return AppResult<int>.Fail("duplicate_taxid", "Ya existe un proveedor con ese CUIT/DNI.");
-        var entity = new Supplier
-        {
-            AccountId = accountId,
-            Name = request.Name.Trim(),
-            TaxId = request.TaxId.Trim(),
-            Phone = request.Phone.Trim(),
-            IsActive = request.IsActive
-        };
-        CommerceFeatureHelpers.TouchCreate(entity, current);
-        db.Suppliers.Add(entity);
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "Supplier", entity.Id, "created", $"Proveedor creado: {entity.Name}", ct);
-        return AppResult<int>.Ok(entity.Id);
-    }
-}
-
-public sealed class UpdateSupplierCommandHandler(IAppDbContext db, IUserAccessService access, ICurrentUser current, IAuditService audit)
-    : IRequestHandler<UpdateSupplierCommand, AppResult>
-{
-    public async Task<AppResult> Handle(UpdateSupplierCommand request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
-        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var entity = await db.Suppliers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
-        if (entity is null) return AppResult.Fail("not_found", "Proveedor no encontrado.");
-        if (await db.Suppliers.AnyAsync(x => x.AccountId == accountId && x.TaxId == request.TaxId.Trim() && x.Id != request.Id, ct))
-            return AppResult.Fail("duplicate_taxid", "Ya existe otro proveedor con ese CUIT/DNI.");
-        entity.Name = request.Name.Trim();
-        entity.TaxId = request.TaxId.Trim();
-        entity.Phone = request.Phone.Trim();
-        entity.IsActive = request.IsActive;
-        CommerceFeatureHelpers.TouchUpdate(entity, current);
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "Supplier", entity.Id, "updated", $"Proveedor actualizado: {entity.Name}", ct);
-        return AppResult.Ok();
-    }
-}
-
-public sealed class ToggleSupplierStatusCommandHandler(IAppDbContext db, IUserAccessService access, ICurrentUser current, IAuditService audit)
-    : IRequestHandler<ToggleSupplierStatusCommand, AppResult>
-{
-    public async Task<AppResult> Handle(ToggleSupplierStatusCommand request, CancellationToken ct)
-    {
-        var scope = await CommerceFeatureHelpers.RequireModuleAccessAsync(access, SaasModule.Suppliers, ct);
-        if (!scope.Success) return AppResult.Fail(scope.ErrorCode, scope.Message);
-        var accountId = scope.AccountId;
-        var entity = await db.Suppliers.FirstOrDefaultAsync(x => x.AccountId == accountId && x.Id == request.Id, ct);
-        if (entity is null) return AppResult.Fail("not_found", "Proveedor no encontrado.");
-        entity.IsActive = request.IsActive;
-        CommerceFeatureHelpers.TouchUpdate(entity, current);
-        await db.SaveChangesAsync(ct);
-        await audit.WriteAsync(accountId, null, "Supplier", entity.Id, request.IsActive ? "activated" : "deactivated", $"Proveedor {(request.IsActive ? "activado" : "desactivado")}: {entity.Name}", ct);
         return AppResult.Ok();
     }
 }

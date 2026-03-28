@@ -12,6 +12,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
+using System.Text.Json;
 using Xunit;
 
 namespace GestAI.Tests;
@@ -1300,6 +1302,75 @@ public sealed class CommerceIntegrationTests
 
         Assert.Equal("application/pdf", result.ContentType);
         Assert.NotEmpty(result.Content);
+    }
+
+    [Fact]
+    public async Task GetProductsQuery_PerformanceBudget_P95AndPayloadWithinThreshold()
+    {
+        await using var db = CreateDbContext();
+        var fixture = await SeedCommerceAccountAsync(db, "owner-performance@test");
+
+        var category = new ProductCategory { AccountId = fixture.Account.Id, Name = "Perf", IsActive = true };
+        db.ProductCategories.Add(category);
+        await db.SaveChangesAsync();
+
+        var products = Enumerable.Range(1, 120)
+            .Select(i => new Product
+            {
+                AccountId = fixture.Account.Id,
+                Name = $"Producto {i:D3}",
+                InternalCode = $"PERF-{i:D3}",
+                Description = "Perf test",
+                CategoryId = category.Id,
+                Brand = "Perf",
+                UnitOfMeasure = UnitOfMeasure.Unit,
+                Cost = 10,
+                SalePrice = 20 + i,
+                MinimumStock = 0,
+                IsActive = true
+            })
+            .ToList();
+        db.Products.AddRange(products);
+        await db.SaveChangesAsync();
+
+        var variants = products
+            .Select((p, i) => new ProductVariant
+            {
+                AccountId = fixture.Account.Id,
+                ProductId = p.Id,
+                Name = $"Variante {i + 1:D3}",
+                InternalCode = $"VPERF-{i + 1:D3}",
+                AttributesSummary = "Default",
+                Cost = 10,
+                SalePrice = p.SalePrice,
+                IsActive = true
+            })
+            .ToList();
+        db.ProductVariants.AddRange(variants);
+        await db.SaveChangesAsync();
+
+        var handler = new GetProductsQueryHandler(db, fixture.Access);
+        var samplesMs = new List<long>();
+        AppResult<PagedResult<ProductListItemDto>>? result = null;
+
+        for (var i = 0; i < 15; i++)
+        {
+            var sw = Stopwatch.StartNew();
+            result = await handler.Handle(new GetProductsQuery(Page: 1, PageSize: 20), CancellationToken.None);
+            sw.Stop();
+            samplesMs.Add(sw.ElapsedMilliseconds);
+        }
+
+        Assert.NotNull(result);
+        Assert.True(result!.Success);
+        Assert.NotNull(result.Data);
+
+        var ordered = samplesMs.OrderBy(x => x).ToArray();
+        var p95 = ordered[(int)Math.Ceiling(ordered.Length * 0.95) - 1];
+        var payloadBytes = JsonSerializer.SerializeToUtf8Bytes(result.Data).Length;
+
+        Assert.True(p95 <= 500, $"p95 fuera de presupuesto: {p95}ms");
+        Assert.True(payloadBytes <= 200_000, $"payload fuera de presupuesto: {payloadBytes} bytes");
     }
 
     private sealed record CommerceFixture(Account Account, TestCurrentUser CurrentUser, UserAccessService Access);

@@ -32,7 +32,10 @@ builder.Services.AddScoped<JwtAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<JwtAuthStateProvider>());
 
 builder.Services.AddScoped<LocalStorageService>(); // si lo usás en otras cosas
+builder.Services.AddScoped<PriceListEditorService>();
+builder.Services.AddScoped<CommerceMasterUiService>();
 builder.Services.AddSingleton<AppState>();
+builder.Services.AddSingleton<ProductTelemetryService>();
 
 // ------------------------------------------------------------
 // Handlers (solo para BackendApi)

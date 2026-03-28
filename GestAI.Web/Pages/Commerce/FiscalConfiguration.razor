@@ -1,6 +1,8 @@
 @page "/fiscal-configuration"
 @using GestAI.Web.Dtos
+@using GestAI.Web.Service
 @inject ApiClient Api
+@inject ProductTelemetryService Telemetry
 
 <PageTitle>Configuración fiscal</PageTitle>
 
@@ -220,7 +222,20 @@ else
             _message = result?.Success == true ? "Configuración fiscal guardada correctamente." : result?.Message ?? "No se pudo guardar la configuración fiscal.";
 
             if (result?.Success == true)
+            {
+                Telemetry.Track("fiscal-configuration", "save", "success");
                 await Load();
+            }
+            else
+            {
+                Telemetry.Track("fiscal-configuration", "save", "error", _message);
+            }
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            Telemetry.Track("fiscal-configuration", "save", "error", ex.Message);
+            _messageIsError = true;
+            _message = ex.Message;
         }
         finally
         {
@@ -239,30 +254,40 @@ else
         if (file is null)
             return;
 
-        await using var stream = file.OpenReadStream(MaxFiscalFileSize);
-        using var memory = new MemoryStream();
-        await stream.CopyToAsync(memory);
-
-        var command = new UploadFiscalCredentialCommandDto
+        try
         {
-            FileName = file.Name,
-            ContentType = file.ContentType,
-            ContentBase64 = Convert.ToBase64String(memory.ToArray()),
-            IsPrivateKey = isPrivateKey
-        };
+            await using var stream = file.OpenReadStream(MaxFiscalFileSize);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
 
-        var result = await Api.PostAsync<UploadFiscalCredentialCommandDto, AppResult<string>>("api/commerce/fiscal/credentials", command);
-        _messageIsError = result?.Success != true;
-        _message = result?.Success == true
-            ? (isPrivateKey ? "Clave privada cargada correctamente." : "Certificado cargado correctamente.")
-            : result?.Message ?? "No se pudo cargar el archivo.";
+            var command = new UploadFiscalCredentialCommandDto
+            {
+                FileName = file.Name,
+                ContentType = file.ContentType,
+                ContentBase64 = Convert.ToBase64String(memory.ToArray()),
+                IsPrivateKey = isPrivateKey
+            };
 
-        if (result?.Success == true && !string.IsNullOrWhiteSpace(result.Data))
+            var result = await Api.PostAsync<UploadFiscalCredentialCommandDto, AppResult<string>>("api/commerce/fiscal/credentials", command);
+            _messageIsError = result?.Success != true;
+            _message = result?.Success == true
+                ? (isPrivateKey ? "Clave privada cargada correctamente." : "Certificado cargado correctamente.")
+                : result?.Message ?? "No se pudo cargar el archivo.";
+            Telemetry.Track("fiscal-configuration", isPrivateKey ? "upload-private-key" : "upload-certificate", result?.Success == true ? "success" : "error", _message);
+
+            if (result?.Success == true && !string.IsNullOrWhiteSpace(result.Data))
+            {
+                if (isPrivateKey)
+                    _form.PrivateKeyReference = result.Data;
+                else
+                    _form.CertificateReference = result.Data;
+            }
+        }
+        catch (ApiClient.ApiClientException ex)
         {
-            if (isPrivateKey)
-                _form.PrivateKeyReference = result.Data;
-            else
-                _form.CertificateReference = result.Data;
+            Telemetry.Track("fiscal-configuration", isPrivateKey ? "upload-private-key" : "upload-certificate", "error", ex.Message);
+            _messageIsError = true;
+            _message = ex.Message;
         }
     }
 

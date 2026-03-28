@@ -3,9 +3,12 @@
 @page "/branches/edit/{EditId:int}"
 @using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
+@using GestAI.Web.Service
 @inject ApiClient Api
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject ProductTelemetryService Telemetry
+@inject CommerceMasterUiService Ui
 
 <PageTitle>Sucursales</PageTitle>
 
@@ -43,10 +46,7 @@ else if (IsEditorRoute)
                     <div class="ui-card-subtitle">Completá los datos básicos de la sucursal.</div>
                 </div>
             </div>
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <div class="alert alert-danger" role="alert">@_error</div>
-            }
+            <FormFeedback Error="@_error" Success="@_success" />
 
             <div class="row g-3">
                 <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" @bind:after="MarkDirty" /></div>
@@ -64,10 +64,7 @@ else if (IsEditorRoute)
 }
 else if (_result?.Items.Count == 0)
 {
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <div class="alert alert-danger" role="alert">@_error</div>
-    }
+    <FormFeedback Error="@_error" Success="@_success" />
     <EmptyState Title="No hay sucursales para mostrar"
                 Description="Creá la primera sucursal para empezar a organizar la operación."
                 Icon="bi-shop">
@@ -76,16 +73,14 @@ else if (_result?.Items.Count == 0)
 }
 else
 {
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <div class="alert alert-danger" role="alert">@_error</div>
-    }
+    <FormFeedback Error="@_error" Success="@_success" />
     <div class="card ui-filter-card"><div class="card-body">
         <div class="row g-2 align-items-end">
             <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre o código" /></div>
             <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-            <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Search">Buscar</button></div>
-            <div class="col-md-3 text-md-end ui-table-meta">Gestión de estructura comercial</div>
+            <div class="col-md-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+            <div class="col-md-1"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
+            <div class="col-md-2 text-md-end ui-table-meta">Gestión de estructura comercial</div>
         </div>
     </div></div>
 
@@ -144,6 +139,7 @@ else
     private const int PageSize = 10;
     private BranchUpsertCommand _form = new();
     private string? _error;
+    private string? _success;
 
     private bool IsNewRoute => Nav.Uri.EndsWith("/branches/new", StringComparison.OrdinalIgnoreCase);
     private bool IsEditorRoute => IsNewRoute || EditId.HasValue;
@@ -161,7 +157,21 @@ else
         _loaded = true;
     }
 
-    private async Task Search() { _page = 1; await Load(); }
+    private async Task Search()
+    {
+        _page = 1;
+        await Load();
+        Telemetry.Track("branches", "search", "success");
+    }
+
+    private async Task ClearFilters()
+    {
+        _search = string.Empty;
+        _status = string.Empty;
+        _page = 1;
+        await Load();
+        Telemetry.Track("branches", "clear-filters", "success");
+    }
 
     private async Task Load()
     {
@@ -170,10 +180,12 @@ else
             _error = null;
             var isActive = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
             _result = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>($"api/commerce/branches?search={Uri.EscapeDataString(_search ?? string.Empty)}{isActive}&page={_page}&pageSize={PageSize}"))?.Data;
+            Telemetry.Track("branches", "load", "success");
         }
         catch (ApiClient.ApiClientException ex)
         {
             _error = ex.Message;
+            Telemetry.Track("branches", "load", "error", ex.Message);
             _result = new PagedResult<BranchListItemDto>(new List<BranchListItemDto>(), 0, _page, PageSize);
         }
     }
@@ -183,6 +195,7 @@ else
         if (IsNewRoute)
         {
             _error = null;
+            _success = null;
             _form = new BranchUpsertCommand { IsActive = true };
             _isDirty = false;
             return;
@@ -197,6 +210,7 @@ else
         try
         {
             _error = null;
+            _success = null;
             var detail = (await Api.GetAsync<AppResult<BranchDetailDto>>($"api/commerce/branches/{EditId.Value}"))?.Data;
             if (detail is null)
             {
@@ -230,11 +244,14 @@ else
             else await Api.PutAsync($"api/commerce/branches/{_form.Id}", new { _form.Id, _form.Name, _form.Code, _form.IsActive });
 
             _isDirty = false;
+            _success = Ui.SaveMessage("Sucursal", _form.Id == 0);
+            Telemetry.Track("branches", "save", "success", _form.Id == 0 ? "create" : "update");
             BackToList();
         }
         catch (ApiClient.ApiClientException ex)
         {
             _error = ex.Message;
+            Telemetry.Track("branches", "save", "error", ex.Message);
         }
         finally
         {
@@ -247,12 +264,16 @@ else
         try
         {
             _error = null;
+            _success = null;
             await Api.PostAsync($"api/commerce/branches/{item.Id}/status", new { isActive = !item.IsActive });
+            _success = Ui.ToggleMessage("Sucursal", item.IsActive);
             await Load();
+            Telemetry.Track("branches", "toggle", "success", $"id={item.Id}");
         }
         catch (ApiClient.ApiClientException ex)
         {
             _error = ex.Message;
+            Telemetry.Track("branches", "toggle", "error", ex.Message);
         }
     }
 

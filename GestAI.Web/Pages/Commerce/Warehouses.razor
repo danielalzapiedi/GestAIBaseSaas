@@ -5,6 +5,7 @@
 @inject ApiClient Api
 @inject IJSRuntime JS
 @inject ProductTelemetryService Telemetry
+@inject CommerceMasterUiService Ui
 
 <PageTitle>Depósitos</PageTitle>
 
@@ -254,7 +255,7 @@ else
             else await Api.PutAsync($"api/commerce/warehouses/{_form.Id}", new { _form.Id, _form.BranchId, _form.Name, _form.IsMain, _form.IsActive });
             _showForm = false;
             _isDirty = false;
-            _success = _form.Id == 0 ? "Depósito creado correctamente." : "Depósito actualizado correctamente.";
+            _success = Ui.SaveMessage("Depósito", _form.Id == 0);
             await Load();
             Telemetry.Track("warehouses", "save", "success", _form.Id == 0 ? "create" : "update");
         }
@@ -276,7 +277,7 @@ else
             _error = null;
             _success = null;
             await Api.PostAsync($"api/commerce/warehouses/{item.Id}/status", new { isActive = !item.IsActive });
-            _success = item.IsActive ? "Depósito desactivado." : "Depósito activado.";
+            _success = Ui.ToggleMessage("Depósito", item.IsActive);
             await Load();
             Telemetry.Track("warehouses", "toggle", "success", $"id={item.Id}");
         }

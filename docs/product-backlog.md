@@ -7,8 +7,7 @@
 - Sin ítems de producto pendientes.
 
 ## 🧱 Técnica
-- Refactorizar `CommerceFeatures` en submódulos por bounded context para bajar complejidad y facilitar mantenimiento.
-- Reducir lógica de negocio incrustada en páginas Razor moviendo reglas y orquestación a servicios/view-models testeables.
+- Sin ítems técnicos pendientes.
 
 ## 🚀 Performance
 - Medir y publicar resultados reales de p95/payload por endpoint crítico para validar baseline en entorno integrado.
@@ -27,3 +26,5 @@
 - Formalizar política única de pricing entre venta rápida y venta estándar con regla explícita de catálogo vs override.
 - Estandarizar comportamiento de filtros/búsqueda en listados maestros con acciones consistentes de buscar/limpiar.
 - Incorporar observabilidad funcional mínima en módulos maestros (load/search/save/toggle) con telemetría de resultado.
+- Refactorizar `CommerceFeatures` en submódulos por bounded context para bajar complejidad y facilitar mantenimiento.
+- Reducir lógica incrustada en Razor de módulos maestros moviendo reglas de mensajes a servicio UI reutilizable.

@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ProductTelemetryService Telemetry
+@inject CommerceMasterUiService Ui
 
 <PageTitle>Proveedores</PageTitle>
 
@@ -244,7 +245,7 @@ else
             else await Api.PutAsync($"api/commerce/suppliers/{_form.Id}", new { _form.Id, _form.Name, _form.TaxId, _form.Phone, _form.IsActive });
 
             _isDirty = false;
-            _success = _form.Id == 0 ? "Proveedor creado correctamente." : "Proveedor actualizado correctamente.";
+            _success = Ui.SaveMessage("Proveedor", _form.Id == 0);
             Telemetry.Track("suppliers", "save", "success", _form.Id == 0 ? "create" : "update");
             BackToList();
         }
@@ -266,7 +267,7 @@ else
             _error = null;
             _success = null;
             await Api.PostAsync($"api/commerce/suppliers/{item.Id}/status", new { isActive = !item.IsActive });
-            _success = item.IsActive ? "Proveedor desactivado." : "Proveedor activado.";
+            _success = Ui.ToggleMessage("Proveedor", item.IsActive);
             await Load();
             Telemetry.Track("suppliers", "toggle", "success", $"id={item.Id}");
         }

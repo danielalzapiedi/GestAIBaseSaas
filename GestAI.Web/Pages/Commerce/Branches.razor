@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ProductTelemetryService Telemetry
+@inject CommerceMasterUiService Ui
 
 <PageTitle>Sucursales</PageTitle>
 
@@ -243,7 +244,7 @@ else
             else await Api.PutAsync($"api/commerce/branches/{_form.Id}", new { _form.Id, _form.Name, _form.Code, _form.IsActive });
 
             _isDirty = false;
-            _success = _form.Id == 0 ? "Sucursal creada correctamente." : "Sucursal actualizada correctamente.";
+            _success = Ui.SaveMessage("Sucursal", _form.Id == 0);
             Telemetry.Track("branches", "save", "success", _form.Id == 0 ? "create" : "update");
             BackToList();
         }
@@ -265,7 +266,7 @@ else
             _error = null;
             _success = null;
             await Api.PostAsync($"api/commerce/branches/{item.Id}/status", new { isActive = !item.IsActive });
-            _success = item.IsActive ? "Sucursal desactivada." : "Sucursal activada.";
+            _success = Ui.ToggleMessage("Sucursal", item.IsActive);
             await Load();
             Telemetry.Track("branches", "toggle", "success", $"id={item.Id}");
         }

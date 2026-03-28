@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @inject ProductTelemetryService Telemetry
+@inject CommerceMasterUiService Ui
 
 <PageTitle>Clientes</PageTitle>
 
@@ -249,7 +250,7 @@ else
             else await Api.PutAsync($"api/commerce/customers/{_form.Id}", new { _form.Id, _form.Name, _form.DocumentNumber, _form.Phone, _form.Address, _form.City, _form.CustomerType, _form.IsActive });
 
             _isDirty = false;
-            _success = _form.Id == 0 ? "Cliente creado correctamente." : "Cliente actualizado correctamente.";
+            _success = Ui.SaveMessage("Cliente", _form.Id == 0);
             Telemetry.Track("customers", "save", "success", _form.Id == 0 ? "create" : "update");
             BackToList();
         }
@@ -271,7 +272,7 @@ else
             _error = null;
             _success = null;
             await Api.PostAsync($"api/commerce/customers/{item.Id}/status", new { isActive = !item.IsActive });
-            _success = item.IsActive ? "Cliente desactivado." : "Cliente activado.";
+            _success = Ui.ToggleMessage("Cliente", item.IsActive);
             await Load();
             Telemetry.Track("customers", "toggle", "success", $"id={item.Id}");
         }

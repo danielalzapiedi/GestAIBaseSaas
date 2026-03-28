@@ -1,7 +1,9 @@
 @page "/quotes"
 @using GestAI.Web.Dtos
+@using GestAI.Web.Service
 @inject ApiClient Api
 @inject NavigationManager Navigation
+@inject ProductTelemetryService Telemetry
 
 <PageTitle>Presupuestos</PageTitle>
 
@@ -25,11 +27,12 @@
 
 <div class="card ui-filter-card"><div class="card-body">
     <div class="row g-2 align-items-end">
-        <div class="col-lg-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, cliente" /></div>
+        <div class="col-lg-3"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, cliente" /></div>
         <div class="col-lg-3"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
         <div class="col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
         <div class="col-lg-2"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
         <div class="col-lg-1"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
+        <div class="col-lg-1"><button class="btn btn-outline-secondary w-100" type="button" @onclick="ClearFilters">Limpiar</button></div>
     </div>
 </div></div>
 
@@ -145,6 +148,7 @@
                             <div>
                                 <div class="ui-form-section-title mb-1">Ítems</div>
                                 <div class="ui-card-subtitle mt-0">Carga ágil con productos o variantes y edición mínima de cantidad/precio.</div>
+                                <div class="ui-table-meta">@PricingPolicy.StandardSalePolicyDescription</div>
                             </div>
                             <button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddBlankLine">Agregar línea</button>
                         </div>
@@ -286,7 +290,23 @@
         _loaded = true;
     }
 
-    private async Task Search() { _page = 1; await Load(); }
+    private async Task Search()
+    {
+        _page = 1;
+        await Load();
+        Telemetry.Track("quotes", "search", "success");
+    }
+
+    private async Task ClearFilters()
+    {
+        _search = string.Empty;
+        _status = string.Empty;
+        _onlyConvertible = string.Empty;
+        _customerId = 0;
+        _page = 1;
+        await Load();
+        Telemetry.Track("quotes", "clear-filters", "success");
+    }
 
     private void NewItem()
     {
@@ -372,10 +392,12 @@
 
             _showForm = false;
             _success = "Presupuesto guardado correctamente.";
+            Telemetry.Track("quotes", "save", "success", _form.Id == 0 ? "create" : "update");
             await Load();
         }
         catch (ApiClient.ApiClientException ex)
         {
+            Telemetry.Track("quotes", "save", "error", ex.Message);
             _error = ex.Message;
         }
         finally
@@ -394,16 +416,19 @@
             if (result?.Success == true && result.Data is > 0)
             {
                 _success = "Presupuesto convertido correctamente.";
+                Telemetry.Track("quotes", "convert", "success", $"saleId={result.Data}");
                 await Load();
                 Navigation.NavigateTo($"/sales/{result.Data}");
             }
             else
             {
+                Telemetry.Track("quotes", "convert", "error", result?.Message);
                 _error = result?.Message ?? "No se pudo convertir el presupuesto.";
             }
         }
         catch (ApiClient.ApiClientException ex)
         {
+            Telemetry.Track("quotes", "convert", "error", ex.Message);
             _error = ex.Message;
         }
     }

@@ -1,6 +1,8 @@
 @page "/price-lists"
 @using GestAI.Web.Dtos
+@using GestAI.Web.Service
 @inject ApiClient Api
+@inject ProductTelemetryService Telemetry
 
 <PageTitle>Listas de precios</PageTitle>
 
@@ -244,6 +246,7 @@ else
                 if (created?.Success == true && created?.Data is int newId)
                 {
                     _success = "Lista creada correctamente.";
+                    Telemetry.Track("price-lists", "save-list", "success", "create");
                     await EditListAsync(newId);
                 }
             }
@@ -254,6 +257,7 @@ else
                 if (updated?.Success == true)
                 {
                     _success = "Lista actualizada correctamente.";
+                    Telemetry.Track("price-lists", "save-list", "success", "update");
                     await EditListAsync(_form.Id);
                 }
             }
@@ -262,6 +266,7 @@ else
         }
         catch (ApiClient.ApiClientException ex)
         {
+            Telemetry.Track("price-lists", "save-list", "error", ex.Message);
             _error = ex.Message;
         }
         finally
@@ -287,11 +292,13 @@ else
             if (result?.Success == true)
             {
                 _success = "Precio guardado correctamente.";
+                Telemetry.Track("price-lists", "save-item", "success");
                 await EditListAsync(_selectedList.Id);
             }
         }
         catch (ApiClient.ApiClientException ex)
         {
+            Telemetry.Track("price-lists", "save-item", "error", ex.Message);
             _error = ex.Message;
         }
         finally
@@ -314,11 +321,13 @@ else
             if (result?.Success == true)
             {
                 _success = result.Data?.Summary ?? "Actualización aplicada.";
+                Telemetry.Track("price-lists", "bulk-update", "success", result.Data?.Summary);
                 await EditListAsync(_selectedList.Id);
             }
         }
         catch (ApiClient.ApiClientException ex)
         {
+            Telemetry.Track("price-lists", "bulk-update", "error", ex.Message);
             _error = ex.Message;
         }
         finally

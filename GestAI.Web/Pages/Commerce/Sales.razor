@@ -1,7 +1,9 @@
 @page "/sales"
 @using GestAI.Web.Dtos
+@using GestAI.Web.Service
 @inject ApiClient Api
 @inject NavigationManager Navigation
+@inject ProductTelemetryService Telemetry
 
 <PageTitle>Ventas</PageTitle>
 
@@ -26,10 +28,11 @@
 
 <div class="card ui-filter-card"><div class="card-body">
     <div class="row g-2 align-items-end">
-        <div class="col-lg-5"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, cliente, presupuesto origen" /></div>
+        <div class="col-lg-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, cliente, presupuesto origen" /></div>
         <div class="col-lg-3"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
         <div class="col-lg-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<SaleStatus>()){<option value="@status">@SaleStatusLabel(status)</option>}</select></div>
         <div class="col-lg-1"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
+        <div class="col-lg-1"><button class="btn btn-outline-secondary w-100" type="button" @onclick="ClearFilters">Limpiar</button></div>
     </div>
 </div></div>
 
@@ -116,7 +119,7 @@
                     </div>
                 </div>
                 <div class="ui-form-section">
-                    <div class="ui-variant-head"><div><div class="ui-form-section-title mb-1">Ítems</div><div class="ui-card-subtitle mt-0">Búsqueda por nombre o código y edición rápida de cantidades/precios.</div></div><button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddBlankLine">Agregar línea</button></div>
+                    <div class="ui-variant-head"><div><div class="ui-form-section-title mb-1">Ítems</div><div class="ui-card-subtitle mt-0">Búsqueda por nombre o código y edición rápida de cantidades/precios.</div><div class="ui-table-meta">@PricingPolicy.StandardSalePolicyDescription</div></div><button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddBlankLine">Agregar línea</button></div>
                     <div class="row g-2 mb-3">
                         <div class="col-12"><label class="form-label">Búsqueda rápida</label><input class="form-control" @bind="_quickSearch" placeholder="Buscar por nombre o código" /></div>
                         @if (QuickMatches.Count > 0)
@@ -218,7 +221,22 @@
         _loaded = true;
     }
 
-    private async Task Search() { _page = 1; await Load(); }
+    private async Task Search()
+    {
+        _page = 1;
+        await Load();
+        Telemetry.Track("sales", "search", "success");
+    }
+
+    private async Task ClearFilters()
+    {
+        _search = string.Empty;
+        _status = string.Empty;
+        _customerId = 0;
+        _page = 1;
+        await Load();
+        Telemetry.Track("sales", "clear-filters", "success");
+    }
 
     private void NewItem()
     {
@@ -282,10 +300,12 @@
                 await Api.PutAsync($"api/commerce/sales/{_form.Id}", body);
             _showForm = false;
             _success = "Venta guardada correctamente.";
+            Telemetry.Track("sales", "save", "success", _form.Id == 0 ? "create" : "update");
             await Load();
         }
         catch (ApiClient.ApiClientException ex)
         {
+            Telemetry.Track("sales", "save", "error", ex.Message);
             _error = ex.Message;
         }
         finally

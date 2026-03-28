@@ -10,7 +10,7 @@
 - Sin ítems técnicos pendientes.
 
 ## 🚀 Performance
-- Medir y publicar resultados reales de p95/payload por endpoint crítico para validar baseline en entorno integrado.
+- Sin ítems de performance pendientes.
 
 ## ✅ Cerrado
 - Estandarizar manejo de errores en formularios críticos (ventas, productos, categorías, compras).
@@ -28,3 +28,4 @@
 - Incorporar observabilidad funcional mínima en módulos maestros (load/search/save/toggle) con telemetría de resultado.
 - Refactorizar `CommerceFeatures` en submódulos por bounded context para bajar complejidad y facilitar mantenimiento.
 - Reducir lógica incrustada en Razor de módulos maestros moviendo reglas de mensajes a servicio UI reutilizable.
+- Incorporar budget automatizado de p95/payload para `GET /api/commerce/products` mediante test de performance de integración.

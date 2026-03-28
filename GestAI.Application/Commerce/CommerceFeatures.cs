@@ -634,10 +634,31 @@ public sealed class GetProductsQueryHandler(IAppDbContext db, IUserAccessService
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var items = await query.OrderBy(x => x.Name)
+        var pagedProducts = query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(x => new ProductListItemDto(x.Id, x.Name, x.InternalCode, x.Barcode, x.Category.Name, x.Brand, x.UnitOfMeasure, x.SalePrice, x.IsActive, x.Variants.Count(v => v.IsActive)))
+            .Take(pageSize);
+
+        var activeVariantCounts = db.ProductVariants.AsNoTracking()
+            .Where(v => v.AccountId == accountId && v.IsActive)
+            .GroupBy(v => v.ProductId)
+            .Select(g => new { ProductId = g.Key, Count = g.Count() });
+
+        var items = await pagedProducts
+            .GroupJoin(activeVariantCounts,
+                product => product.Id,
+                variantCount => variantCount.ProductId,
+                (product, variantCounts) => new { product, ActiveVariants = variantCounts.Select(v => v.Count).FirstOrDefault() })
+            .Select(x => new ProductListItemDto(
+                x.product.Id,
+                x.product.Name,
+                x.product.InternalCode,
+                x.product.Barcode,
+                x.product.Category.Name,
+                x.product.Brand,
+                x.product.UnitOfMeasure,
+                x.product.SalePrice,
+                x.product.IsActive,
+                x.ActiveVariants))
             .ToListAsync(ct);
         return AppResult<PagedResult<ProductListItemDto>>.Ok(new PagedResult<ProductListItemDto>(items, total, page, pageSize));
     }

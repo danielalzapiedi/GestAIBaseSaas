@@ -55,20 +55,31 @@ public sealed class GetTenantListQueryHandler(IAppDbContext db, ICurrentUser cur
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var ownerProfiles = db.Users.AsNoTracking()
+            .Select(u => new
+            {
+                u.Id,
+                FullName = ((u.Nombre ?? string.Empty) + " " + (u.Apellido ?? string.Empty)).Trim(),
+                Email = u.Email ?? string.Empty
+            });
 
         var items = await query
             .OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .GroupJoin(ownerProfiles,
+                account => account.OwnerUserId,
+                owner => owner.Id,
+                (account, owners) => new { account, owner = owners.FirstOrDefault() })
             .Select(x => new PlatformTenantListItemDto(
-                x.Id,
-                x.Name,
-                x.IsActive,
-                x.OwnerUserId,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => (u.Nombre + " " + u.Apellido).Trim()).FirstOrDefault() ?? string.Empty,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => u.Email ?? string.Empty).FirstOrDefault() ?? string.Empty,
-                x.CreatedAtUtc,
-                x.Users.Count(u => u.IsActive)))
+                x.account.Id,
+                x.account.Name,
+                x.account.IsActive,
+                x.account.OwnerUserId,
+                x.owner != null ? x.owner.FullName : string.Empty,
+                x.owner != null ? x.owner.Email : string.Empty,
+                x.account.CreatedAtUtc,
+                x.account.Users.Count(u => u.IsActive)))
             .ToListAsync(ct);
 
         return AppResult<PagedResult<PlatformTenantListItemDto>>.Ok(CommerceFeatureHelpers.ToPaged(items, total, page, pageSize));
@@ -82,16 +93,28 @@ public sealed class GetTenantByIdQueryHandler(IAppDbContext db, ICurrentUser cur
     {
         if (!current.IsInRole("SuperAdmin")) return AppResult<PlatformTenantDetailDto>.Fail("forbidden", "Solo un super administrador puede ver tenants.");
 
+        var ownerProfiles = db.Users.AsNoTracking()
+            .Select(u => new
+            {
+                u.Id,
+                FullName = ((u.Nombre ?? string.Empty) + " " + (u.Apellido ?? string.Empty)).Trim(),
+                Email = u.Email ?? string.Empty
+            });
+
         var item = await db.Accounts.AsNoTracking()
             .Where(x => x.Id == request.TenantId)
+            .GroupJoin(ownerProfiles,
+                account => account.OwnerUserId,
+                owner => owner.Id,
+                (account, owners) => new { account, owner = owners.FirstOrDefault() })
             .Select(x => new PlatformTenantDetailDto(
-                x.Id,
-                x.Name,
-                x.IsActive,
-                x.OwnerUserId,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => (u.Nombre + " " + u.Apellido).Trim()).FirstOrDefault() ?? string.Empty,
-                db.Users.Where(u => u.Id == x.OwnerUserId).Select(u => u.Email ?? string.Empty).FirstOrDefault() ?? string.Empty,
-                x.CreatedAtUtc))
+                x.account.Id,
+                x.account.Name,
+                x.account.IsActive,
+                x.account.OwnerUserId,
+                x.owner != null ? x.owner.FullName : string.Empty,
+                x.owner != null ? x.owner.Email : string.Empty,
+                x.account.CreatedAtUtc))
             .FirstOrDefaultAsync(ct);
 
         return item is null

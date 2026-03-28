@@ -16,6 +16,7 @@
 - Extendidos los patrones UX a `Products` y `Categories` para completar el set crítico definido en backlog.
 - Optimizados listados críticos para evitar subconsultas duplicadas por fila en tenant/products.
 - Depurado `product-backlog.md` para remover del backlog activo los ítems ya implementados/cerrados.
+- Cerrados ítems de pendiente prioritario: homogeneización de feedback en pantallas maestras y control de paginación máxima en backend.
 
 ## Pendiente para cerrar release
 - Ejecutar y dejar en verde build + tests en pipeline CI.

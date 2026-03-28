@@ -63,7 +63,7 @@ public sealed record ToggleSupplierStatusCommand(int Id, bool IsActive) : IReque
 
 internal static class CommerceFeatureHelpers
 {
-    public const int MaxPageSize = 100;
+    public const int MaxPageSize = 50;
 
     public static async Task<int?> GetRequiredAccountIdAsync(IUserAccessService access, CancellationToken ct)
         => await access.GetCurrentAccountIdAsync(ct);
@@ -154,7 +154,7 @@ public sealed class GetBranchesQueryHandler(IAppDbContext db, IUserAccessService
 
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -294,7 +294,7 @@ public sealed class GetWarehousesQueryHandler(IAppDbContext db, IUserAccessServi
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Branch.Name).ThenBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -456,7 +456,7 @@ public sealed class GetCategoriesQueryHandler(IAppDbContext db, IUserAccessServi
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -633,7 +633,7 @@ public sealed class GetProductsQueryHandler(IAppDbContext db, IUserAccessService
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var pagedProducts = query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize);
@@ -966,7 +966,7 @@ public sealed class GetCustomersQueryHandler(IAppDbContext db, IUserAccessServic
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
@@ -1107,7 +1107,7 @@ public sealed class GetSuppliersQueryHandler(IAppDbContext db, IUserAccessServic
         if (request.IsActive.HasValue) query = query.Where(x => x.IsActive == request.IsActive.Value);
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var items = await query.OrderBy(x => x.Name)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

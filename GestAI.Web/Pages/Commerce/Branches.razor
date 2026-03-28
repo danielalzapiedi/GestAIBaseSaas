@@ -43,10 +43,7 @@ else if (IsEditorRoute)
                     <div class="ui-card-subtitle">Completá los datos básicos de la sucursal.</div>
                 </div>
             </div>
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <div class="alert alert-danger" role="alert">@_error</div>
-            }
+            <FormFeedback Error="@_error" Success="@_success" />
 
             <div class="row g-3">
                 <div class="col-md-8"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" @bind:after="MarkDirty" /></div>
@@ -64,10 +61,7 @@ else if (IsEditorRoute)
 }
 else if (_result?.Items.Count == 0)
 {
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <div class="alert alert-danger" role="alert">@_error</div>
-    }
+    <FormFeedback Error="@_error" Success="@_success" />
     <EmptyState Title="No hay sucursales para mostrar"
                 Description="Creá la primera sucursal para empezar a organizar la operación."
                 Icon="bi-shop">
@@ -76,10 +70,7 @@ else if (_result?.Items.Count == 0)
 }
 else
 {
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <div class="alert alert-danger" role="alert">@_error</div>
-    }
+    <FormFeedback Error="@_error" Success="@_success" />
     <div class="card ui-filter-card"><div class="card-body">
         <div class="row g-2 align-items-end">
             <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre o código" /></div>
@@ -144,6 +135,7 @@ else
     private const int PageSize = 10;
     private BranchUpsertCommand _form = new();
     private string? _error;
+    private string? _success;
 
     private bool IsNewRoute => Nav.Uri.EndsWith("/branches/new", StringComparison.OrdinalIgnoreCase);
     private bool IsEditorRoute => IsNewRoute || EditId.HasValue;
@@ -183,6 +175,7 @@ else
         if (IsNewRoute)
         {
             _error = null;
+            _success = null;
             _form = new BranchUpsertCommand { IsActive = true };
             _isDirty = false;
             return;
@@ -197,6 +190,7 @@ else
         try
         {
             _error = null;
+            _success = null;
             var detail = (await Api.GetAsync<AppResult<BranchDetailDto>>($"api/commerce/branches/{EditId.Value}"))?.Data;
             if (detail is null)
             {
@@ -230,6 +224,7 @@ else
             else await Api.PutAsync($"api/commerce/branches/{_form.Id}", new { _form.Id, _form.Name, _form.Code, _form.IsActive });
 
             _isDirty = false;
+            _success = _form.Id == 0 ? "Sucursal creada correctamente." : "Sucursal actualizada correctamente.";
             BackToList();
         }
         catch (ApiClient.ApiClientException ex)
@@ -247,7 +242,9 @@ else
         try
         {
             _error = null;
+            _success = null;
             await Api.PostAsync($"api/commerce/branches/{item.Id}/status", new { isActive = !item.IsActive });
+            _success = item.IsActive ? "Sucursal desactivada." : "Sucursal activada.";
             await Load();
         }
         catch (ApiClient.ApiClientException ex)

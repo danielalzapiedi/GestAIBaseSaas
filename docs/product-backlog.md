@@ -1,8 +1,7 @@
 # Product Backlog
 
 ## 🔥 Pendiente prioritario
-- Homogeneizar mensajes de error y éxito en las pantallas que aún no usan patrón consistente de feedback.
-- Revisar paginación y tamaño de respuesta en endpoints de alto tráfico para prevenir degradación temprana.
+- Sin ítems críticos pendientes.
 
 ## 🧠 Producto
 - Formalizar la política única de pricing para venta rápida y venta completa (precio catálogo vs override permitido).
@@ -25,3 +24,5 @@
 - Estandarizar validaciones visuales + dirty guard + estados de interfaz en pantallas transaccionales.
 - Optimizar consultas con subqueries repetidas en listados críticos.
 - Definir baseline inicial de performance (objetivos p95/payload y estrategia de medición).
+- Homogeneizar mensajes de error/éxito en pantallas maestras pendientes (`branches`, `warehouses`, `customers`, `suppliers`) con `FormFeedback`.
+- Ajustar límite máximo de paginación en backend para endpoints de alto tráfico (cap global de `PageSize` a 50).

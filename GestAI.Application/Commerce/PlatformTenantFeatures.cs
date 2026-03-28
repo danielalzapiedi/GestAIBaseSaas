@@ -54,7 +54,7 @@ public sealed class GetTenantListQueryHandler(IAppDbContext db, ICurrentUser cur
 
         var total = await query.CountAsync(ct);
         var page = Math.Max(1, request.Page);
-        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+        var pageSize = Math.Clamp(request.PageSize, 1, CommerceFeatureHelpers.MaxPageSize);
         var ownerProfiles = db.Users.AsNoTracking()
             .Select(u => new
             {

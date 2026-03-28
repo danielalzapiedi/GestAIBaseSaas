@@ -40,10 +40,7 @@
 }
 else if (_result?.Items.Count == 0)
 {
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <div class="alert alert-danger" role="alert">@_error</div>
-    }
+    <FormFeedback Error="@_error" Success="@_success" />
     <EmptyState Title="No hay depósitos para mostrar"
                 Description="Creá depósitos para organizar stock y operación por sucursal."
                 Icon="bi-box-seam">
@@ -53,10 +50,7 @@ else if (_result?.Items.Count == 0)
 else
 {
     <NavigationLock ConfirmExternalNavigation="@(_showForm && _isDirty)" OnBeforeInternalNavigation="@ConfirmInternalNavigation" />
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <div class="alert alert-danger" role="alert">@_error</div>
-    }
+    <FormFeedback Error="@_error" Success="@_success" />
     <div class="ui-split-layout">
         <div class="card ui-data-card @(_showForm ? "d-none" : string.Empty)">
             <div class="card-body">
@@ -119,10 +113,7 @@ else
                 }
                 else
                 {
-                    @if (!string.IsNullOrWhiteSpace(_error))
-                    {
-                        <div class="alert alert-danger" role="alert">@_error</div>
-                    }
+                    <FormFeedback Error="@_error" Success="@_success" />
                     <div class="row g-3">
                         <div class="col-12"><label class="form-label">Sucursal</label><select class="form-select" @bind="_form.BranchId" @bind:after="MarkDirty">@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
                         <div class="col-12"><label class="form-label">Nombre</label><input class="form-control" @bind="_form.Name" @bind:after="MarkDirty" /></div>
@@ -155,6 +146,7 @@ else
     private const int PageSize = 10;
     private WarehouseUpsertCommand _form = new();
     private string? _error;
+    private string? _success;
 
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
 
@@ -169,6 +161,7 @@ else
         try
         {
             _error = null;
+            _success = null;
             _branches = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>("api/commerce/branches?pageSize=100"))?.Data?.Items.Select(x => new LookupDto(x.Id, x.Name)).ToList() ?? new();
         }
         catch (ApiClient.ApiClientException ex)
@@ -202,6 +195,7 @@ else
     private void NewItem()
     {
         _error = null;
+        _success = null;
         _form = new WarehouseUpsertCommand { BranchId = _branches.FirstOrDefault()?.Id ?? 0, IsActive = true };
         _showForm = true;
         _isDirty = false;
@@ -212,6 +206,7 @@ else
         try
         {
             _error = null;
+            _success = null;
             var detail = (await Api.GetAsync<AppResult<WarehouseDetailDto>>($"api/commerce/warehouses/{item.Id}"))?.Data;
             if (detail is null) return;
             _form = new WarehouseUpsertCommand { Id = detail.Id, BranchId = detail.BranchId, Name = detail.Name, IsMain = detail.IsMain, IsActive = detail.IsActive };
@@ -237,6 +232,7 @@ else
             else await Api.PutAsync($"api/commerce/warehouses/{_form.Id}", new { _form.Id, _form.BranchId, _form.Name, _form.IsMain, _form.IsActive });
             _showForm = false;
             _isDirty = false;
+            _success = _form.Id == 0 ? "Depósito creado correctamente." : "Depósito actualizado correctamente.";
             await Load();
         }
         catch (ApiClient.ApiClientException ex)
@@ -254,7 +250,9 @@ else
         try
         {
             _error = null;
+            _success = null;
             await Api.PostAsync($"api/commerce/warehouses/{item.Id}/status", new { isActive = !item.IsActive });
+            _success = item.IsActive ? "Depósito desactivado." : "Depósito activado.";
             await Load();
         }
         catch (ApiClient.ApiClientException ex)
@@ -268,6 +266,7 @@ else
         _showForm = false;
         _isDirty = false;
         _error = null;
+        _success = null;
     }
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
     private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }

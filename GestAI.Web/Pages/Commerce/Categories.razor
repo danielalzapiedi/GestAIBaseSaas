@@ -1,6 +1,8 @@
 @page "/categories"
 @using GestAI.Web.Dtos
+@using System.Text.Json
 @inject ApiClient Api
+@inject IJSRuntime JS
 
 <PageTitle>Categorías</PageTitle>
 
@@ -14,6 +16,8 @@
         <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva categoría</button>
     </div>
 </section>
+
+<FormFeedback Error="@_loadError" />
 
 <div class="card ui-filter-card"><div class="card-body">
     <div class="row g-2 align-items-end">
@@ -138,6 +142,7 @@
                             <button class="btn btn-primary" @onclick="Save" disabled="@_saving">Guardar</button>
                             <button class="btn btn-outline-secondary" @onclick="Cancel" disabled="@_saving">Cancelar</button>
                         </div>
+                        <span class="ui-table-meta">@((IsDirty) ? "Cambios sin guardar" : "Sin cambios pendientes")</span>
                     </div>
                 }
             </div>
@@ -160,6 +165,8 @@
     private CategoryUpsertCommand _form = new();
     private string? _error;
     private string? _success;
+    private string? _loadError;
+    private string _formSnapshot = string.Empty;
 
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
 
@@ -170,10 +177,21 @@
     private async Task Load()
     {
         _loaded = false;
-        var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
-        _result = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>($"api/commerce/categories?search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
-        _allCategories = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>($"api/commerce/categories?pageSize={ParentOptionsPageSize}"))?.Data?.Items.ToList() ?? new();
-        _tree = (await Api.GetAsync<AppResult<List<CategoryTreeItemDto>>>("api/commerce/categories/tree"))?.Data ?? new();
+        _loadError = null;
+        try
+        {
+            var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
+            _result = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>($"api/commerce/categories?search={Uri.EscapeDataString(_search ?? string.Empty)}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+            _allCategories = (await Api.GetAsync<AppResult<PagedResult<CategoryListItemDto>>>($"api/commerce/categories?pageSize={ParentOptionsPageSize}"))?.Data?.Items.ToList() ?? new();
+            _tree = (await Api.GetAsync<AppResult<List<CategoryTreeItemDto>>>("api/commerce/categories/tree"))?.Data ?? new();
+        }
+        catch (ApiClient.ApiClientException ex)
+        {
+            _loadError = ex.Message;
+            _result = null;
+            _allCategories = new();
+            _tree = new();
+        }
         _loaded = true;
     }
 
@@ -193,6 +211,7 @@
     {
         _form = new CategoryUpsertCommand { IsActive = true };
         _showForm = true;
+        MarkClean();
     }
 
     private async Task Edit(CategoryListItemDto item)
@@ -201,12 +220,19 @@
         if (detail is null) return;
         _form = new CategoryUpsertCommand { Id = detail.Id, Name = detail.Name, ParentCategoryId = detail.ParentCategoryId, IsActive = detail.IsActive };
         _showForm = true;
+        MarkClean();
     }
 
     private async Task Save()
     {
         _error = null;
         _success = null;
+        var validation = ValidateEditor();
+        if (validation.Count > 0)
+        {
+            _error = string.Join(" ", validation);
+            return;
+        }
         _saving = true;
         try
         {
@@ -242,7 +268,41 @@
         }
     }
 
-    private void Cancel() => _showForm = false;
+    private async Task Cancel()
+    {
+        if (!await ConfirmDiscardIfDirtyAsync())
+            return;
+        _showForm = false;
+    }
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }
     private async Task NextPage() { if (_page < TotalPages) { _page++; await Load(); } }
+
+    private List<string> ValidateEditor()
+    {
+        var issues = new List<string>();
+        if (string.IsNullOrWhiteSpace(_form.Name))
+            issues.Add("Ingresá el nombre de la categoría.");
+        if (_form.ParentCategoryId.HasValue && _form.ParentCategoryId == _form.Id)
+            issues.Add("La categoría no puede tenerse como padre.");
+        return issues;
+    }
+
+    private string BuildSnapshot()
+        => JsonSerializer.Serialize(new
+        {
+            _form.Id,
+            _form.Name,
+            _form.ParentCategoryId,
+            _form.IsActive
+        });
+
+    private bool IsDirty => _showForm && _formSnapshot != BuildSnapshot();
+
+    private void MarkClean() => _formSnapshot = BuildSnapshot();
+
+    private async Task<bool> ConfirmDiscardIfDirtyAsync()
+    {
+        if (!IsDirty) return true;
+        return await JS.InvokeAsync<bool>("confirm", "Tenés cambios sin guardar. ¿Querés descartarlos?");
+    }
 }

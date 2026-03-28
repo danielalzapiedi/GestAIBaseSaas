@@ -15,8 +15,8 @@
 
 ## Entregables generados
 - `UnsavedChangesGuardService` corrige referencia a `IJSRuntime` con `using` explícito.
-- `CommercePartyFeatures` incorpora `using GestAI.Application.Common` para resolver `AppResult` y `PagedResult` en handlers MediatR.
-- `CommerceIntegrationTests` ajusta import de `AppResult`, uso de `quoteResult.Data` nullable y estado esperado de factura (`PendingAuthorization`).
+- `CommercePartyFeatures` incorpora `using GestAI.Application.Common` y `using GestAI.Domain.Enums` para resolver `AppResult`/`PagedResult` y `SaasModule` en handlers MediatR.
+- `CommerceIntegrationTests` ajusta import de `AppResult`, compatibilidad de `quoteResult.Data` para ambos contextos de nullability (`int`/`int?`) y estado esperado de factura (`PendingAuthorization`).
 
 ## Validación y QA
 - Se intentó ejecutar build/test, pero el entorno local no dispone de .NET SDK (`dotnet: command not found`).

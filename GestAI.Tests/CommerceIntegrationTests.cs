@@ -104,7 +104,7 @@ public sealed class CommerceIntegrationTests
 
         var convert = new ConvertQuoteToSaleCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
         Assert.NotNull(quoteResult.Data);
-        var quoteId = quoteResult.Data!.Value;
+        var quoteId = quoteResult.Data!;
 
         var result = await convert.Handle(new ConvertQuoteToSaleCommand(quoteId, SaleStatus.Confirmed, DateTime.UtcNow, null), CancellationToken.None);
 
@@ -157,13 +157,13 @@ public sealed class CommerceIntegrationTests
         Assert.NotNull(quoteResult.Data);
 
         var convert = new ConvertQuoteToSaleCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
-        var saleResult = await convert.Handle(new ConvertQuoteToSaleCommand(quoteResult.Data!.Value, SaleStatus.Confirmed, DateTime.UtcNow, "Smoke convert"), CancellationToken.None);
+        var saleResult = await convert.Handle(new ConvertQuoteToSaleCommand(quoteResult.Data!, SaleStatus.Confirmed, DateTime.UtcNow, "Smoke convert"), CancellationToken.None);
 
         Assert.True(saleResult.Success);
         Assert.NotNull(saleResult.Data);
 
         var createInvoice = new CreateInvoiceCommandHandler(db, fixture.Access, fixture.CurrentUser, new TestAuditService());
-        var invoiceResult = await createInvoice.Handle(new CreateInvoiceCommand(saleResult.Data!.Value, null, InvoiceType.InvoiceB, DateTime.UtcNow, 0.21m), CancellationToken.None);
+        var invoiceResult = await createInvoice.Handle(new CreateInvoiceCommand(saleResult.Data!, null, InvoiceType.InvoiceB, DateTime.UtcNow, 0.21m), CancellationToken.None);
 
         Assert.True(invoiceResult.Success);
         Assert.NotNull(invoiceResult.Data);

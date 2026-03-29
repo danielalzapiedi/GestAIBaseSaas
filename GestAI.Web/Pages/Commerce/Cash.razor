@@ -12,7 +12,7 @@
     </div>
     <div class="page-hero-meta">
         <span class="page-hero-chip"><i class="bi bi-safe2"></i> @(_dashboard?.Register.Name ?? "Caja principal")</span>
-        <span class="page-hero-chip"><i class="bi bi-wallet2"></i> @(_dashboard?.CurrentBalance ?? 0m).ToString("C")</span>
+        <span class="page-hero-chip"><i class="bi bi-wallet2"></i> @((_dashboard?.CurrentBalance ?? 0m).ToString("C"))</span>
     </div>
 </section>
 

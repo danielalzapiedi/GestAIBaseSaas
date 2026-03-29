@@ -9,6 +9,10 @@
 - El equipo opera en evolución continua por backlog priorizado.
 - El foco vigente en este ciclo fue corregir issues visuales y de legibilidad reportados por usuario final.
 
+## Release / modo vigente
+- **Release activa en roadmap:** No hay release activa; el repositorio está en **modo diagnóstico continuo**.
+- **¿La tarea actual pertenece al modo vigente?** Sí. Es un hotfix visual/funcional de render monetario en UI comercial.
+
 ## Tarea aplicada en este ciclo
 - **Tarea:** Corrección visual transversal:
   1. mostrar nombre/apellido real del usuario conectado en el menú superior,
@@ -16,12 +20,18 @@
   3. mejorar responsividad para pantallas tipo notebook.
 - **¿Pertenece al modo actual?** Sí. Impacta directamente experiencia de uso y percepción de calidad.
 
+## Tarea aplicada (actualización 2026-03-29)
+- **Tarea:** Hotfix de render de moneda para evitar literalización del sufijo `.ToString("C")` al usar fallback numérico en Razor.
+- **Pantalla afectada:** Caja (`/cash`), chip de saldo en hero.
+- **Impacto funcional:** garantiza visualización de importe formateado incluso cuando no hay dashboard cargado (`0` como fallback).
+
 ## Flujo del equipo (ejecutado)
-1. **Análisis funcional:** relevamiento de síntomas visuales reportados en header, listados y layout.
-2. **UX/UI:** definición de criterios de corrección (identidad clara de sesión, legibilidad de textos, mejor adaptación en viewport intermedio).
-3. **Diseño técnico:** ajustes en `MainLayout`, reemplazo de separadores tipográficos en páginas commerce y tuning de CSS responsive.
-4. **Implementación:** cambios en layout, estilos y contenido textual de múltiples pantallas.
-5. **Validación QA:** revisión de consistencia de textos/estilos y checks de código.
+1. **Release Manager:** confirmó modo vigente (diagnóstico continuo) y validó pertenencia de la tarea.
+2. **Análisis funcional:** relevamiento de síntoma visual reportado (`0.ToString("C")` visible en UI).
+3. **UX/UI:** definición de criterio de legibilidad consistente para montos con fallback seguro.
+4. **Diseño técnico:** encapsular toda la expresión monetaria en `@(...)` para evitar render literal parcial en Razor.
+5. **Implementación:** ajuste puntual en `Cash.razor` sobre el chip de saldo.
+6. **Validación QA:** build + tests para asegurar que el hotfix no introduzca regresiones.
 
 ## Entregables generados
 - `GestAI.Web/MainLayout.razor`
@@ -30,9 +40,11 @@
   - normaliza separadores visuales para evitar caracteres ambiguos en distintos entornos de render.
 - `GestAI.Web/wwwroot/app-overrides.css`
   - mejora truncado de nombre de usuario y ajustes responsive para ancho notebook (<=1366px).
+- `GestAI.Web/Pages/Commerce/Cash.razor`
+  - corrige render de saldo en hero con formato monetario seguro sobre fallback.
 
 ## Validación y QA
-- Se intentó ejecutar build/test local para validación completa.
+- Se ejecutan build/test local para validación completa antes de cierre.
 - Si la pipeline CI detecta regresión, se debe corregir y re-ejecutar hasta verde.
 
 ## Próximo paso recomendado

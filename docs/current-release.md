@@ -45,6 +45,11 @@
 - **Detalle:** se removieron “Operación logística” (Depósitos) y “Red de abastecimiento” (Proveedores) del bloque junto a Buscar/Limpiar.
 - **Impacto UX:** mayor limpieza visual y consistencia entre pantallas maestras.
 
+## Tarea aplicada (actualización 2026-03-29 - fix reportes EF)
+- **Tarea:** Corrección de query LINQ en reporte operativo para evitar excepción de traducción en EF Core.
+- **Detalle técnico:** se separó la proyección agrupada a tipo anónimo SQL-translatable y el mapeo a `TopProductReportDto` se hace en memoria después de `ToListAsync`.
+- **Impacto funcional:** el endpoint de reportes vuelve a responder sin `InvalidOperationException` en el ranking de productos.
+
 ## Flujo del equipo (ejecutado)
 1. **Release Manager:** confirmó modo vigente (diagnóstico continuo) y validó pertenencia de la tarea.
 2. **Análisis funcional:** relevamiento de síntoma visual reportado (`0.ToString("C")` visible en UI).

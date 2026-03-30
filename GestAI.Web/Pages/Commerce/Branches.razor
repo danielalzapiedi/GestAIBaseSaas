@@ -175,6 +175,7 @@ else
             _error = null;
             var isActive = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
             _result = (await Api.GetAsync<AppResult<PagedResult<BranchListItemDto>>>($"api/commerce/branches?search={Uri.EscapeDataString(_search ?? string.Empty)}{isActive}&page={_page}&pageSize={PageSize}"))?.Data;
+            _result ??= new PagedResult<BranchListItemDto>(new List<BranchListItemDto>(), 0, _page, PageSize);
             Telemetry.Track("branches", "load", "success");
         }
         catch (ApiClient.ApiClientException ex)

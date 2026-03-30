@@ -1,4 +1,6 @@
 @page "/quotes"
+@page "/quotes/{Mode}"
+@page "/quotes/edit/{EditId:int}"
 @using GestAI.Web.Dtos
 @using GestAI.Web.Service
 @using Microsoft.AspNetCore.Components.Web
@@ -17,28 +19,41 @@
                 ChipText="@($"{_result?.TotalCount ?? 0} presupuestos")"
                 ChipIconClass="bi bi-file-earmark-text">
     <Actions>
-        <button class="btn btn-primary" type="button" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo presupuesto</button>
+        @if (_showForm)
+        {
+            <button class="btn btn-outline-secondary" type="button" @onclick="BackToList"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" type="button" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo presupuesto</button>
+        }
     </Actions>
 </ListPageHeader>
 
-<div class="row g-3 ui-summary-grid mb-1">
-    <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Convertibles</div><div class="ui-stat-value">@ConvertibleCount</div><div class="ui-stat-foot">Presupuestos válidos y no convertidos en la página.</div></div></div></div>
-    <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Total visible</div><div class="ui-stat-value">@VisibleTotal.ToString("C")</div><div class="ui-stat-foot">Total comercial acumulado de la página actual.</div></div></div></div>
-    <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Cliente filtro</div><div class="ui-stat-value">@SelectedCustomerLabel</div><div class="ui-stat-foot">@StatusFilterLabel</div></div></div></div>
-</div>
-
-<ListPageFilters>
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" @onkeydown="HandleSearchKeyDown" placeholder="Número, cliente" /></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
-        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100 text-nowrap" type="button" @onclick="Search">Buscar</button></div>
-        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100 text-nowrap" type="button" @onclick="ClearFilters">Limpiar</button></div>
+@if (!_showForm)
+{
+    <div class="row g-3 ui-summary-grid mb-1">
+        <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Convertibles</div><div class="ui-stat-value">@ConvertibleCount</div><div class="ui-stat-foot">Presupuestos válidos y no convertidos en la página.</div></div></div></div>
+        <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Total visible</div><div class="ui-stat-value">@VisibleTotal.ToString("C")</div><div class="ui-stat-foot">Total comercial acumulado de la página actual.</div></div></div></div>
+        <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Cliente filtro</div><div class="ui-stat-value">@SelectedCustomerLabel</div><div class="ui-stat-foot">@StatusFilterLabel</div></div></div></div>
     </div>
-</ListPageFilters>
+}
+
+@if (!_showForm)
+{
+    <ListPageFilters>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" @onkeydown="HandleSearchKeyDown" placeholder="Número, cliente" /></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100 text-nowrap" type="button" @onclick="Search">Buscar</button></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100 text-nowrap" type="button" @onclick="ClearFilters">Limpiar</button></div>
+        </div>
+    </ListPageFilters>
+}
 <div class="ui-split-layout ui-split-layout-focus-editor">
-    <div>
+    <div class="@(_showForm ? "d-none" : string.Empty)">
         @if (!_loaded)
         {
             <div class="card"><div class="card-body">Cargando presupuestos...</div></div>
@@ -74,7 +89,7 @@
             @if (_result?.Items.Count == 0)
             {
                 <EmptyState Title="Todavía no hay presupuestos cargados"
-                            Description="Podés crear el primer presupuesto desde el editor lateral sin salir de esta pantalla."
+                            Description="Podés crear el primer presupuesto desde la pantalla de edición."
                             Icon="bi-file-earmark-text">
                     <button class="btn btn-primary" type="button" @onclick="NewItem">Nuevo presupuesto</button>
                 </EmptyState>
@@ -127,8 +142,8 @@
         }
     </div>
 
-    <div class="ui-section-grid">
-        <div class="card ui-form-card @(_showForm ? "w-100 ui-editor-open" : "ui-editor-hidden")" id="quotes-editor">
+    <div class="ui-section-grid @(_showForm ? "w-100" : string.Empty)">
+        <div class="card ui-form-card @(_showForm ? "w-100" : "d-none")" id="quotes-editor">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -171,8 +186,14 @@
                             <button class="btn btn-sm btn-outline-primary" type="button" @onclick="AddBlankLine">Agregar línea</button>
                         </div>
                         <div class="row g-2 mb-3">
-                            <div class="col-12"><label class="form-label">Búsqueda rápida</label><input class="form-control" @bind="_quickSearch" placeholder="Buscar por nombre o código" /></div>
-                            @if (QuickMatches.Count > 0)
+                            <div class="col-12"><label class="form-label">Búsqueda rápida</label><input class="form-control" @bind="_quickSearch" @bind:event="oninput" placeholder="Buscar por nombre o código" /></div>
+                            @if (HasQuickSearchText && !CanSearchQuickMatches)
+                            {
+                                <div class="col-12">
+                                    <div class="ui-table-meta">Escribí al menos 3 letras para ver coincidencias.</div>
+                                </div>
+                            }
+                            else if (QuickMatches.Count > 0)
                             {
                                 <div class="col-12">
                                     <div class="list-group ui-search-list">
@@ -184,6 +205,12 @@
                                             </button>
                                         }
                                     </div>
+                                </div>
+                            }
+                            else if (CanSearchQuickMatches)
+                            {
+                                <div class="col-12">
+                                    <div class="ui-table-meta">No encontramos productos con ese criterio.</div>
                                 </div>
                             }
                         </div>
@@ -204,13 +231,14 @@
                                     @for (var i = 0; i < _form.Items.Count; i++)
                                     {
                                         var line = _form.Items[i];
+                                        var rowIndex = i;
                                         <tr>
                                             <td><input class="form-control" @bind="line.Description" /></td>
                                             <td><input class="form-control" @bind="line.InternalCode" /></td>
                                             <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
                                             <td><input class="form-control" type="number" step="0.01" @bind="line.UnitPrice" /></td>
                                             <td class="fw-semibold">@line.LineSubtotal.ToString("C")</td>
-                                            <td><button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => RemoveLine(i)" title="Quitar línea" aria-label="Quitar línea"><i class="bi bi-trash"></i></button></td>
+                                            <td><button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => RemoveLine(rowIndex)" title="Quitar línea" aria-label="Quitar línea"><i class="bi bi-trash"></i></button></td>
                                         </tr>
                                     }
                                     </tbody>
@@ -234,7 +262,7 @@
             </div>
         </div>
 
-        <div class="card">
+        <div class="card @(_showForm ? "d-none" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -254,6 +282,9 @@
 </div>
 
 @code {
+    [Parameter] public string? Mode { get; set; }
+    [Parameter] public int? EditId { get; set; }
+
     private PagedResult<QuoteListItemDto>? _result;
     private CommercialDocumentSeedDataDto _seed = new(Array.Empty<LookupDto>(), Array.Empty<CommercialSkuLookupDto>(), Array.Empty<CommercialSkuLookupDto>());
     private readonly List<CommercialSkuLookupDto> _skuIndex = new();
@@ -275,22 +306,55 @@
     private string? _success;
     private string? _loadError;
     private string _formSnapshot = string.Empty;
+    private bool _seedLoaded;
 
+    private bool IsNewRoute => string.Equals(Mode, "new", StringComparison.OrdinalIgnoreCase);
+    private bool IsEditRoute => EditId.HasValue;
+    private bool IsEditorRoute => IsNewRoute || IsEditRoute;
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
-    private bool HasLoadError => !_showForm && !string.IsNullOrWhiteSpace(_loadError);
+    private bool HasLoadError => !IsEditorRoute && !string.IsNullOrWhiteSpace(_loadError);
     private int ConvertibleCount => _result?.Items.Count(x => x.CanConvertToSale) ?? 0;
     private decimal VisibleTotal => _result?.Items.Sum(x => x.Total) ?? 0m;
     private string SelectedCustomerLabel => _customerId == 0 ? "Todos" : _seed.Customers.FirstOrDefault(x => x.Id == _customerId)?.Name ?? "Cliente";
     private string StatusFilterLabel => string.IsNullOrWhiteSpace(_status) ? "Sin filtro de estado" : QuoteStatusLabel(Enum.Parse<QuoteStatus>(_status));
     private decimal FormTotal => _form.Items.Sum(x => x.LineSubtotal);
+    private bool HasQuickSearchText => !string.IsNullOrWhiteSpace(_quickSearch);
+    private bool CanSearchQuickMatches => _quickSearch.Trim().Length >= 3;
     private List<CommercialSkuLookupDto> QuickMatches => string.IsNullOrWhiteSpace(_quickSearch)
         ? new()
-        : _skuIndex.Where(x => x.IsActive && (x.Label.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase) || x.InternalCode.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase))).Take(6).ToList();
+        : _quickSearch.Trim().Length < 3
+            ? new()
+            : _skuIndex.Where(x => x.IsActive && (x.Label.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase) || x.InternalCode.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase))).Take(6).ToList();
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        await LoadSeed();
+        if (!_seedLoaded)
+        {
+            await LoadSeed();
+            _seedLoaded = true;
+        }
+
+        _showForm = IsEditorRoute;
+        if (IsNewRoute)
+        {
+            PrepareNewForm();
+            return;
+        }
+
+        if (IsEditRoute && EditId.HasValue)
+        {
+            await LoadEditor(EditId.Value);
+            return;
+        }
+
         await Load();
+    }
+
+    private void BackToList()
+    {
+        _showForm = false;
+        _error = null;
+        Navigation.NavigateTo("/quotes");
     }
 
     private async Task LoadSeed()
@@ -312,6 +376,7 @@
             var customer = _customerId == 0 ? string.Empty : $"&customerId={_customerId}";
             var convertible = string.IsNullOrWhiteSpace(_onlyConvertible) ? string.Empty : "&onlyConvertible=true";
             _result = (await Api.GetAsync<AppResult<PagedResult<QuoteListItemDto>>>($"api/commerce/quotes?search={Uri.EscapeDataString(_search ?? string.Empty)}{status}{customer}{convertible}&page={_page}&pageSize={PageSize}"))?.Data;
+            _result ??= new PagedResult<QuoteListItemDto>(new List<QuoteListItemDto>(), 0, _page, PageSize);
         }
         catch (ApiClient.ApiClientException ex)
         {
@@ -346,7 +411,7 @@
         Telemetry.Track("quotes", "clear-filters", "success");
     }
 
-    private void NewItem()
+    private void PrepareNewForm()
     {
         _error = null;
         _success = null;
@@ -367,7 +432,17 @@
         MarkClean();
     }
 
-    private async Task Edit(int id)
+    private void NewItem()
+    {
+        _error = null;
+        _success = null;
+        Navigation.NavigateTo("/quotes/new");
+    }
+
+    private void Edit(int id)
+        => Navigation.NavigateTo($"/quotes/edit/{id}");
+
+    private async Task LoadEditor(int id)
     {
         _error = null;
         _success = null;
@@ -440,7 +515,7 @@
             _showForm = false;
             _success = "Presupuesto guardado correctamente.";
             Telemetry.Track("quotes", "save", "success", _form.Id == 0 ? "create" : "update");
-            await Load();
+            Navigation.NavigateTo("/quotes");
         }
         catch (ApiClient.ApiClientException ex)
         {
@@ -507,6 +582,7 @@
         if (!await ConfirmDiscardIfDirtyAsync())
             return;
         _showForm = false;
+        Navigation.NavigateTo("/quotes");
     }
     private void OpenDetail(int id) => Navigation.NavigateTo($"/quotes/{id}");
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }

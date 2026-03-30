@@ -12,14 +12,26 @@
 
 <ListPageHeader Title="Productos" Subtitle="Consolidá catálogo, precios, stock mínimo y variantes desde una pantalla más clara y consistente con el resto de Commerce.">
     <MetaContent>
-        <span class="page-hero-chip"><i class="bi bi-box"></i> @TotalProducts productos</span>
-        <span class="page-hero-chip"><i class="bi bi-diagram-3"></i> @_seed.Categories.Count categorías</span>
-        <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo producto</button>
+        @if (_showForm)
+        {
+            <button class="btn btn-outline-secondary" type="button" @onclick="BackToList"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
+        }
+        else
+        {
+            <span class="page-hero-chip"><i class="bi bi-box"></i> @TotalProducts productos</span>
+            <span class="page-hero-chip"><i class="bi bi-diagram-3"></i> @_seed.Categories.Count categorías</span>
+            <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo producto</button>
+        }
     </MetaContent>
 </ListPageHeader>
 
-<FormFeedback Error="@_loadError" />
+@if (!_showForm)
+{
+    <FormFeedback Error="@_loadError" />
+}
 
+@if (!_showForm)
+{
 <div class="row g-3 ui-summary-grid mb-1">
     <div class="col-sm-6 col-xl-3">
         <div class="card ui-stat-card"><div class="card-body">
@@ -50,19 +62,23 @@
         </div></div>
     </div>
 </div>
+}
 
-<ListPageFilters>
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre, código, marca" /></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Categoría</label><select class="form-select" @bind="_selectedCategoryId"><option value="0">Todas</option>@foreach (var category in _seed.Categories){<option value="@category.Id">@category.Name</option>}</select></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
-        <div class="col-12 col-md-6 col-lg-2 text-md-end ui-table-meta">Catálogo comercial y operativo</div>
-    </div>
-</ListPageFilters>
+@if (!_showForm)
+{
+    <ListPageFilters>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre, código, marca" /></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Categoría</label><select class="form-select" @bind="_selectedCategoryId"><option value="0">Todas</option>@foreach (var category in _seed.Categories){<option value="@category.Id">@category.Name</option>}</select></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+            <div class="col-12 col-md-6 col-lg-2 text-md-end ui-table-meta">Catálogo comercial y operativo</div>
+        </div>
+    </ListPageFilters>
+}
 
 <div class="ui-split-layout">
-    <div>
+    <div class="@(_showForm ? "d-none" : string.Empty)">
         @if (!_loaded)
         {
             <div class="card"><div class="card-body">Cargando productos...</div></div>
@@ -152,8 +168,8 @@
         }
     </div>
 
-    <div class="ui-section-grid">
-        <div class="card">
+    <div class="ui-section-grid @(_showForm ? "w-100" : string.Empty)">
+        <div class="card @(_showForm ? "d-none" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -170,7 +186,7 @@
             </div>
         </div>
 
-        <div class="card ui-form-card @(_showForm ? "w-100 ui-editor-open" : "ui-editor-hidden")">
+        <div class="card ui-form-card @(_showForm ? "w-100" : "d-none")">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -380,6 +396,7 @@
             var category = _selectedCategoryId > 0 ? $"&categoryId={_selectedCategoryId}" : string.Empty;
             var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
             _result = (await Api.GetAsync<AppResult<PagedResult<ProductListItemDto>>>($"api/commerce/products?search={Uri.EscapeDataString(_search ?? string.Empty)}{category}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+            _result ??= new PagedResult<ProductListItemDto>(new List<ProductListItemDto>(), 0, _page, PageSize);
         }
         catch (ApiClient.ApiClientException ex)
         {
@@ -588,6 +605,13 @@
         _variants = new();
         _variantForm = new ProductVariantUpsertCommand();
         _form = new ProductUpsertCommand();
+    }
+
+    private async Task BackToList()
+    {
+        if (!await ConfirmDiscardIfDirtyAsync())
+            return;
+        _showForm = false;
     }
 
     private async Task CancelVariant()

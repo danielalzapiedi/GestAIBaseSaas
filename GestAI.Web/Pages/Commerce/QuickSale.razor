@@ -37,16 +37,27 @@ else
 
                 <div class="ui-form-section">
                     <div class="ui-form-section-title">Búsqueda de productos</div>
-                    <input class="form-control mb-3" @bind="_search" placeholder="Buscar por nombre o código" />
-                    <div class="list-group ui-search-list">
-                        @foreach (var sku in Matches)
-                        {
-                            <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => AddSku(sku)">
-                                <span><strong>@sku.Label</strong><span class="ui-table-meta ms-2">@sku.InternalCode</span></span>
-                                <span>@sku.SalePrice.ToString("C")</span>
-                            </button>
-                        }
-                    </div>
+                    <input class="form-control mb-3" @bind="_search" @bind:event="oninput" placeholder="Buscar por nombre o código" />
+                    @if (HasSearchText && !CanSearchMatches)
+                    {
+                        <div class="ui-table-meta">Escribí al menos 3 letras para ver coincidencias.</div>
+                    }
+                    else if (Matches.Any())
+                    {
+                        <div class="list-group ui-search-list">
+                            @foreach (var sku in Matches)
+                            {
+                                <button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" @onclick="() => AddSku(sku)">
+                                    <span><strong>@sku.Label</strong><span class="ui-table-meta ms-2">@sku.InternalCode</span></span>
+                                    <span>@sku.SalePrice.ToString("C")</span>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (CanSearchMatches)
+                    {
+                        <div class="ui-table-meta">No encontramos productos con ese criterio.</div>
+                    }
                 </div>
 
                 <div class="ui-form-section">
@@ -65,13 +76,14 @@ else
                                 @for (var i = 0; i < _lines.Count; i++)
                                 {
                                     var line = _lines[i];
+                                    var rowIndex = i;
                                     <tr>
                                         <td>@line.Label</td>
                                         <td>@line.InternalCode</td>
                                         <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
                                         <td><span class="fw-semibold">@line.UnitPrice.ToString("C")</span></td>
                                         <td class="fw-semibold">@line.Subtotal.ToString("C")</td>
-                                        <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)" title="Quitar línea" aria-label="Quitar línea"><i class="bi bi-trash"></i></button></td>
+                                        <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(rowIndex)" title="Quitar línea" aria-label="Quitar línea"><i class="bi bi-trash"></i></button></td>
                                     </tr>
                                 }
                                 </tbody>
@@ -114,8 +126,10 @@ else
     private bool _saving;
     private string? _error;
 
-    private IEnumerable<CommercialSkuLookupDto> Matches => string.IsNullOrWhiteSpace(_search)
-        ? (_seed.Products.Concat(_seed.Variants)).Where(x => x.IsActive).Take(8)
+    private bool HasSearchText => !string.IsNullOrWhiteSpace(_search);
+    private bool CanSearchMatches => _search.Trim().Length >= 3;
+    private IEnumerable<CommercialSkuLookupDto> Matches => !CanSearchMatches
+        ? Array.Empty<CommercialSkuLookupDto>()
         : (_seed.Products.Concat(_seed.Variants)).Where(x => x.IsActive && (x.Label.Contains(_search, StringComparison.OrdinalIgnoreCase) || x.InternalCode.Contains(_search, StringComparison.OrdinalIgnoreCase))).Take(8);
     private decimal Total => _lines.Sum(x => x.Subtotal);
 

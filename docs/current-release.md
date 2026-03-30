@@ -3,7 +3,7 @@
 ## Modo actual
 - **Modo:** Diagnóstico de producto continuo (sin releases activas)
 - **Estado:** En progreso
-- **Fecha de actualización:** 2026-03-29
+- **Fecha de actualización:** 2026-03-30
 
 ## Contexto
 - El equipo opera en evolución continua por backlog priorizado.
@@ -390,3 +390,182 @@
 ## Próximo paso recomendado
 - Ejecutar validación visual completa cross-device (desktop/notebook/mobile) sobre los módulos comerciales más usados.
 - Mantener checklist visual en QA para prevenir regresiones de legibilidad y layout.
+
+## Tarea aplicada (actualización 2026-03-30 - hardening null-safe en listados paginados)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Corrección preventiva de nulidad en respuestas paginadas de API para evitar crash de UI cuando `Data` llega nulo sin excepción HTTP.
+- **Detalle técnico:**
+  1. se agregó fallback explícito `_result ??= new PagedResult<...>(...)` en cargas de listados de `Clientes`, `Presupuestos`, `Productos`, `Sucursales`, `Proveedores`, `Ventas`, `Compras`, `Remitos`, `Facturas`, `Listas de precios` y `Tenants`,
+  2. en `DeliveryNotes` se expandió `Load()` para aplicar el mismo contrato null-safe,
+  3. se mantiene comportamiento funcional actual (pantalla vacía controlada) en lugar de riesgo de `NullReferenceException` en render.
+- **Impacto funcional:** mayor resiliencia ante respuestas inconsistentes del backend o envelopes con `Success=false` y `Data=null`, reduciendo riesgo de regresión visible en navegación/listados.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo)
+1. **Product Manager:** validó que el trabajo entra en modo diagnóstico continuo y priorizó robustez transversal.
+2. **Analyst:** detectó riesgo funcional repetido: cargas paginadas sin fallback nulo en múltiples pantallas.
+3. **UX:** definió criterio de experiencia: ante datos nulos, mostrar estado vacío/estable y nunca error técnico de render.
+4. **Architect:** eligió cambio de bajo riesgo y alto alcance: fallback local por pantalla sin romper contratos API.
+5. **Developer:** implementó hardening null-safe en todos los listados críticos identificados.
+6. **QA:** ejecutó chequeos de consistencia de cambios y validación estática; dejó advertido límite de entorno para build/test (`dotnet` no disponible).
+
+## Tarea aplicada (actualización 2026-03-30 - hardening centralizado de envelopes AppResult)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** corregir inconsistencia de manejo de errores cuando la API responde HTTP 200 pero `AppResult.Success=false`.
+- **Detalle técnico:**
+  1. en `GestAI.Web/ApiClient.cs` se agregó validación centralizada post-deserialización para `AppResult` y `AppResult<T>`,
+  2. si el envelope llega en estado no exitoso, ahora se lanza `ApiClientException` con `Message/ErrorCode` del envelope,
+  3. la validación se aplica en `GetAsync`, `PostAsync<TRequest,TResponse>`, `PutAsync<TRequest,TResponse>` y `DeleteAsync<TResponse>`.
+- **Impacto funcional:** la UI deja de interpretar envelopes fallidos como respuestas válidas y pasa a activar el flujo de error controlado (mensajes + fallback), reduciendo inconsistencias y riesgos de estado nulo silencioso.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo, iteración 2)
+1. **Product Manager:** priorizó resolver la causa sistémica por encima de fixes puntuales por pantalla.
+2. **Analyst:** identificó que el bug raíz era la aceptación de `Success=false` como “éxito técnico”.
+3. **UX:** validó que el usuario debe ver feedback de error consistente y no una UI en estado ambiguo.
+4. **Architect:** definió endurecimiento en capa `ApiClient` para normalizar comportamiento transversal.
+5. **Developer:** implementó validación central de envelopes y reutilizó `ApiClientException` existente.
+6. **QA:** ejecutó validación estática y checklist de riesgo de regresión; build/tests pendientes por limitación de entorno (`dotnet` no disponible).
+
+## Tarea aplicada (actualización 2026-03-30 - cobertura AppResult en comandos sin payload tipado)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** extender hardening de `ApiClient` a comandos que no esperan DTO de respuesta (`PostAsync<TRequest>`, `PutAsync<TRequest>`, `DeleteAsync`).
+- **Síntoma detectado:** cuando esos comandos devolvían HTTP 200 con body `AppResult { Success = false }`, la UI lo trataba como éxito porque no deserializaba ni validaba el envelope.
+- **Detalle técnico:**
+  1. se incorporó `EnsureAppResultEnvelopeSuccessOrThrowIfPresentAsync` para leer/validar envelopes JSON en respuestas con contenido,
+  2. se invocó esa validación luego de `EnsureSuccessOrThrowAsync` en `PostAsync<TRequest>`, `PutAsync<TRequest>` y `DeleteAsync`,
+  3. para payloads no-JSON o no-`AppResult`, el método no interviene (fallback seguro sin romper compatibilidad).
+- **Impacto funcional:** errores lógicos del backend en comandos ya no pasan silenciosamente; se activa manejo de error consistente en la UI.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo, iteración 3)
+1. **Product Manager:** priorizó cerrar la brecha remanente de comandos sin respuesta tipada.
+2. **Analyst:** verificó que el bug persistía en operaciones de escritura pese al hardening previo.
+3. **UX:** confirmó que los comandos deben mostrar feedback de error cuando el backend rechaza la operación.
+4. **Architect:** definió extensión de la validación en capa de cliente HTTP para mantener coherencia transversal.
+5. **Developer:** implementó validación opcional de envelope en métodos `void` del cliente.
+6. **QA:** validó consistencia de contrato y riesgo de regresión bajo en rutas no-JSON.
+
+## Tarea aplicada (actualización 2026-03-30 - refactor tipado de envelopes AppResult)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** eliminar fragilidad por reflexión en validación de envelopes `AppResult` del cliente web.
+- **Detalle técnico:**
+  1. se introdujo `IAppResultEnvelope` en `CommonDtos` y `AppResult`/`AppResult<T>` ahora implementan ese contrato,
+  2. `ApiClient` dejó de inspeccionar `AppResult<T>` vía reflection y pasó a validación tipada (`payload is IAppResultEnvelope envelope`),
+  3. se mantiene el mismo comportamiento funcional de error (`ApiClientException`) pero con menor deuda técnica y mejor mantenibilidad.
+- **Impacto técnico:** menor complejidad, menos puntos frágiles por nombres de propiedades en runtime, y mejor consistencia arquitectónica en la capa de transporte.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo, iteración 4)
+1. **Product Manager:** priorizó deuda técnica crítica en manejo transversal de errores.
+2. **Analyst:** identificó riesgo de regresión por uso de reflection en paths calientes de cliente.
+3. **UX:** validó que el cambio no altera feedback al usuario (solo robustez interna).
+4. **Architect:** definió contrato explícito común para envelopes de resultado.
+5. **Developer:** implementó interfaz compartida y simplificó validación en `ApiClient`.
+6. **QA:** validó coherencia de tipos y ausencia de cambios en contratos públicos de API.
+
+## Tarea aplicada (actualización 2026-03-30 - hotfix compilación ApiClient)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** corrección de error de compilación posterior al refactor de envelopes tipados.
+- **Síntoma:** `CS0246` en `ApiClient.cs` por no resolver `IAppResultEnvelope` y `AppResult`.
+- **Detalle técnico:** se agregó `using GestAI.Web.Dtos;` en `GestAI.Web/ApiClient.cs` para vincular explícitamente los tipos de envelope.
+- **Impacto:** restaura compilación del proyecto web en entornos locales/CI que no tengan global usings equivalentes.
+
+## Tarea aplicada (actualización 2026-03-30 - fix icono en select desplegables)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** recuperar la señal visual de desplegable en controles `select`.
+- **Síntoma reportado:** los `select` se percibían como inputs comunes porque no mostraban el icono de flecha.
+- **Causa raíz:** en `app-overrides.css`, la regla compartida de `.form-control, .form-select` usaba `background` shorthand, lo que sobreescribía `background-image` de Bootstrap para `form-select`.
+- **Detalle técnico:**
+  1. se reemplazó `background` por `background-color` en la regla compartida,
+  2. se agregó regla explícita de `.form-select` para respetar `--bs-form-select-bg-img` y asegurar posición/tamaño/padding del ícono.
+- **Impacto UX:** los selects vuelven a ser identificables visualmente como desplegables, mejorando escaneabilidad y usabilidad de formularios/filtros.
+
+## Tarea aplicada (actualización 2026-03-30 - traducción visual a español en navegación y pantallas clave)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** reducir mezcla de idioma en UI visible para usuario final.
+- **Detalle técnico:**
+  1. `MainLayout`: se tradujeron labels visibles en navegación (`Dashboard`→`Tablero`, `Tenants`→`Comercios`) y descripciones de usuario (`Owner/tenant user`→`Titular/Usuario del comercio`),
+  2. `DocumentHistory`: se tradujo microcopy de placeholder y encabezado `Audit trail`,
+  3. `InvoiceDetail`: se tradujeron encabezados `Fiscal / compliance`, `Request / response` y texto `requests` en estado vacío,
+  4. `Dashboard`: `PageTitle` traducido a `Tablero`.
+- **Impacto UX:** mayor consistencia idiomática (español) en la experiencia cotidiana de navegación y lectura operativa.
+
+## Tarea aplicada (actualización 2026-03-30 - traducción de comprobantes en Facturación)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** eliminar nombres de comprobantes en inglés en módulo de Facturación.
+- **Síntoma reportado:** en listados y formularios se veía `InvoiceA/InvoiceB/CreditNote...` en texto técnico inglés.
+- **Detalle técnico:**
+  1. `Invoices.razor`: se incorporó `InvoiceTypeLabel(...)` para render en grilla y combo de tipo, y `IntegrationModeLabel(...)` para la card “Modo fiscal”,
+  2. `InvoiceDetail.razor`: se muestra tipo con etiqueta traducida (`Factura A/B/C`, `Nota de crédito ...`),
+  3. `FiscalConfiguration.razor`: el selector de “Factura por defecto” ahora muestra etiquetas en español.
+- **Impacto UX:** lenguaje consistente para usuarios administrativos y menor exposición de nombres internos de enums.
+
+## Tarea aplicada (actualización 2026-03-30 - premisa de edición en pantalla completa en documentos)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** alinear `Presupuestos` a la premisa UX de alta/edición en pantalla (no modo lateral tipo modal).
+- **Extensión aplicada:** se ajustó el mismo patrón en `Ventas` y `Compras` por compartir arquitectura de editor lateral.
+- **Detalle técnico:**
+  1. en `Quotes`, `Sales` y `Purchases` se agregó acción explícita “Volver al listado” cuando el editor está abierto,
+  2. al abrir editor (`_showForm=true`) ahora se ocultan KPIs/filtros/listado y el editor ocupa ancho completo,
+  3. se agregaron métodos `BackToList` con guard de cambios pendientes para mantener consistencia de navegación segura.
+- **Impacto UX:** nuevo/editar se percibe como flujo de pantalla dedicada dentro de la ruta, evitando sensación de modal lateral y mejorando foco operativo.
+
+## Tarea aplicada (actualización 2026-03-30 - extensión de edición en pantalla completa a maestros)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** extender la premisa de edición en pantalla completa a módulos maestros donde persistía patrón lateral.
+- **Pantallas ajustadas:** `Categorías`, `Productos` y `Depósitos`.
+- **Detalle técnico:**
+  1. `Categories` y `Products`: al abrir editor se ocultan filtros/KPIs/listado y se habilita CTA `Volver al listado`; el editor pasa a ancho completo,
+  2. `Warehouses`: se oculta bloque de filtros durante edición para mantener foco de pantalla en formulario,
+  3. se agregaron métodos `BackToList` con validación de cambios pendientes donde aplica.
+- **Impacto UX:** uniformidad de comportamiento con la premisa global (nuevo/editar en pantalla dedicada), reduciendo ambigüedad de “modal lateral”.
+
+## Tarea aplicada (actualización 2026-03-30 - presupuestos en ruta dedicada para nuevo/editar)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** eliminar definitivamente percepción de modal en `Presupuestos`.
+- **Detalle técnico:**
+  1. `Quotes` ahora expone rutas explícitas para edición: `/quotes/new` y `/quotes/edit/{id}`,
+  2. `NewItem` y `Edit` navegan por ruta; `Save/Cancel/BackToList` retornan a `/quotes`,
+  3. se migró la carga del editor a `OnParametersSetAsync` para sincronizar estado de formulario con navegación,
+  4. se ajustó microcopy para remover referencia a “editor lateral”.
+- **Impacto UX:** nuevo/editar queda en flujo de pantalla dedicada real (por ruta), alineado a la premisa global del producto.
+
+## Tarea aplicada (actualización 2026-03-30 - eliminación de comportamiento visual tipo modal)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** remover efecto visual de modal lateral que persistía en editores con `_showForm`.
+- **Detalle técnico:**
+  1. en `Quotes`, `Sales`, `Purchases`, `Categories`, `Products` y `Warehouses` se dejó de usar clases `ui-editor-open/ui-editor-hidden`,
+  2. se reemplazó por visibilidad directa (`w-100` cuando edita, `d-none` cuando no) para evitar overlay/transición modal del CSS de `ui-split-layout`.
+- **Impacto UX:** edición realmente en pantalla enfocada, sin capa oscura ni percepción de modal superpuesto.
+
+## Tarea aplicada (actualización 2026-03-30 - fix eliminación de líneas en ventas/presupuestos)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** corregir imposibilidad de eliminar líneas de ítems en formularios de Venta y Presupuesto.
+- **Síntoma reportado:** el botón de eliminar no quitaba ninguna línea (ni preexistente ni nueva).
+- **Causa raíz:** captura de variable de índice del `for` en lambda (`@onclick="() => RemoveLine(i)"`), quedando el índice fuera de rango al ejecutar el evento.
+- **Detalle técnico:** en ambos formularios se introdujo variable local por iteración (`rowIndex`) y el click ahora invoca `RemoveLine(rowIndex)`.
+- **Impacto funcional:** vuelve a funcionar la eliminación de líneas de detalle en edición y alta.
+
+## Tarea aplicada (actualización 2026-03-30 - autocompletar de productos desde 3 letras)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** mejorar usabilidad de búsqueda de productos en formularios de `Presupuestos` y `Ventas`.
+- **Problema UX:** no quedaba claro cuándo se ejecutaba la búsqueda y dónde seleccionar resultados.
+- **Detalle técnico:**
+  1. la búsqueda rápida ahora activa coincidencias recién desde la tercera letra (`>= 3`),
+  2. se agregó feedback explícito: “Escribí al menos 3 letras…” cuando aún no alcanza el mínimo,
+  3. se agregó feedback “No encontramos productos…” cuando no hay matches con 3+ caracteres.
+- **Impacto UX:** interacción más predecible y descubrible; el usuario entiende cuándo se dispara el autocompletado y cómo elegir producto.
+
+## Tarea aplicada (actualización 2026-03-30 - autocompletar reactivo en tiempo de tipeo)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** corregir comportamiento “igual que antes” en búsqueda rápida de productos.
+- **Causa raíz:** los inputs estaban con `@bind` por defecto (`change`), por lo que el filtrado no reaccionaba letra a letra.
+- **Detalle técnico:** en `Quotes` y `Sales` se cambió el input de búsqueda rápida a `@bind:event="oninput"`.
+- **Impacto UX:** el listado sugerido se actualiza al escribir (sin perder foco), haciendo evidente dónde seleccionar producto.
+
+## Tarea aplicada (actualización 2026-03-30 - mejora de búsqueda en Venta rápida)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** alinear `Venta rápida` al mismo patrón de autocompletado usado en Ventas/Presupuestos.
+- **Detalle técnico:**
+  1. input de búsqueda con `@bind:event="oninput"` para respuesta en tiempo real,
+  2. mínimo de 3 letras para mostrar sugerencias,
+  3. mensajes guía de estado (mínimo/no resultados) para mejorar descubribilidad,
+  4. fix adicional de eliminación de línea (`rowIndex` + `type="button"`) para evitar capturas inválidas/submits involuntarios.
+- **Impacto UX:** listado de productos más manejable cuando el catálogo crece y flujo de selección más claro en mostrador.

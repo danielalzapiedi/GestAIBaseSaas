@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GestAI.Web.Dtos;
 
 namespace GestAI.Web;
 
@@ -53,7 +54,9 @@ public sealed class ApiClient
             SetBusy(true);
             using var res = await _http.GetAsync(Normalize(url), ct);
             await EnsureSuccessOrThrowAsync(res, ct);
-            return await res.Content.ReadFromJsonAsync<T>(cancellationToken: ct);
+            var payload = await res.Content.ReadFromJsonAsync<T>(cancellationToken: ct);
+            EnsureAppResultEnvelopeSuccessOrThrow(payload);
+            return payload;
         }
         finally
         {
@@ -87,7 +90,9 @@ public sealed class ApiClient
             if (res.StatusCode == HttpStatusCode.NoContent)
                 return default;
 
-            return await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            var payload = await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            EnsureAppResultEnvelopeSuccessOrThrow(payload);
+            return payload;
         }
         finally
         {
@@ -105,6 +110,7 @@ public sealed class ApiClient
             SetBusy(true);
             using var res = await _http.PostAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
+            await EnsureAppResultEnvelopeSuccessOrThrowIfPresentAsync(res, ct);
         }
         finally
         {
@@ -122,6 +128,7 @@ public sealed class ApiClient
             SetBusy(true);
             using var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
+            await EnsureAppResultEnvelopeSuccessOrThrowIfPresentAsync(res, ct);
         }
         finally
         {
@@ -136,7 +143,9 @@ public sealed class ApiClient
             SetBusy(true);
             using var res = await _http.PutAsJsonAsync(Normalize(url), body, ct);
             await EnsureSuccessOrThrowAsync(res, ct);
-            return await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            var payload = await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            EnsureAppResultEnvelopeSuccessOrThrow(payload);
+            return payload;
         }
         finally
         {
@@ -151,6 +160,7 @@ public sealed class ApiClient
             SetBusy(true);
             using var res = await _http.DeleteAsync(Normalize(url), ct);
             await EnsureSuccessOrThrowAsync(res, ct);
+            await EnsureAppResultEnvelopeSuccessOrThrowIfPresentAsync(res, ct);
         }
         finally
         {
@@ -169,7 +179,9 @@ public sealed class ApiClient
             if (res.StatusCode == HttpStatusCode.NoContent)
                 return default;
 
-            return await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            var payload = await res.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            EnsureAppResultEnvelopeSuccessOrThrow(payload);
+            return payload;
         }
         finally
         {
@@ -269,6 +281,37 @@ public sealed class ApiClient
             return message;
 
         return $"{message} ({string.Join(" · ", suffixParts)})";
+    }
+
+    private static void EnsureAppResultEnvelopeSuccessOrThrow<T>(T? payload)
+    {
+        if (payload is not IAppResultEnvelope envelope || envelope.Success)
+            return;
+
+        throw new ApiClientException(
+            BuildUserMessage(envelope.Message ?? "La operación no pudo completarse.", envelope.ErrorCode, null),
+            HttpStatusCode.BadRequest,
+            envelope.ErrorCode);
+    }
+
+    private static async Task EnsureAppResultEnvelopeSuccessOrThrowIfPresentAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.StatusCode == HttpStatusCode.NoContent || response.Content?.Headers.ContentLength == 0)
+            return;
+
+        var mediaType = response.Content?.Headers.ContentType?.MediaType;
+        if (string.IsNullOrWhiteSpace(mediaType) || !mediaType.Contains("json", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            var payload = await response.Content.ReadFromJsonAsync<AppResult>(cancellationToken: ct);
+            EnsureAppResultEnvelopeSuccessOrThrow(payload);
+        }
+        catch (JsonException)
+        {
+            // No-op: the response is not an AppResult envelope.
+        }
     }
 
     private sealed record ApiErrorEnvelope(

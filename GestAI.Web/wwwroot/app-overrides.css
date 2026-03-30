@@ -776,9 +776,13 @@ body {
 }
 
 .ui-list-page-filters .btn {
+    height: 38px;
     min-height: 38px;
     border-radius: 10px;
-    font-weight: 700;
+    font-size: .9rem;
+    font-weight: 600;
+    line-height: 1.1;
+    padding: .4rem .65rem;
 }
 
 .ui-action-bar {

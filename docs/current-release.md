@@ -317,6 +317,12 @@
   2. `SupplierAccounts` se migró de wrapper manual `ui-filter-card` a `ListPageFilters` para entrar en el mismo contrato visual.
 - **Impacto UX:** no quedan pantallas con `ListPageFilters` fuera de la grilla uniforme; todos los filtros comparten misma proporción en desktop.
 
+## Tarea aplicada (actualización 2026-03-30 - ajuste de tamaño visual en botones de filtros)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** reducir peso visual de botones dentro de `ListPageFilters` para que queden armónicos con inputs/selects.
+- **Detalle técnico:** en `.ui-list-page-filters .btn` se fijó altura de 38px alineada a controles de entrada, se ajustó tipografía/peso (`.9rem`, `600`) y se compactó padding/line-height.
+- **Impacto UX:** botones de acción con presencia visual equilibrada respecto de los campos de filtro, evitando sensación de desproporción.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

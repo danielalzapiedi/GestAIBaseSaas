@@ -127,6 +127,12 @@
 - **Detalle técnico:** se redistribuyeron columnas de filtros en Presupuestos para dar mayor ancho a acciones y se creó `ui-filter-btn` con padding/tamaño de fuente más compacto; en Clientes se removieron íconos de acción para preservar legibilidad dentro del botón.
 - **Impacto UX:** botones en una sola línea y contenido contenido dentro del ancho visual del control, sin desborde.
 
+## Tarea aplicada (actualización 2026-03-30 - ajuste fino visual grilla clientes/filtros)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Reducir peso visual de botones de filtros y corregir apariencia de filas en grilla de Clientes.
+- **Detalle técnico:** se compactó `ui-filter-btn` (menor altura/padding/tamaño de fuente) para liberar espacio a filtros y en Clientes se removió `table-striped` para evitar cortes visuales del fondo gris por fila.
+- **Impacto UX:** filtros con mayor aire útil y tabla de Clientes con lectura más limpia/sólida.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

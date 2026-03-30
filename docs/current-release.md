@@ -559,3 +559,13 @@
 - **Causa raíz:** los inputs estaban con `@bind` por defecto (`change`), por lo que el filtrado no reaccionaba letra a letra.
 - **Detalle técnico:** en `Quotes` y `Sales` se cambió el input de búsqueda rápida a `@bind:event="oninput"`.
 - **Impacto UX:** el listado sugerido se actualiza al escribir (sin perder foco), haciendo evidente dónde seleccionar producto.
+
+## Tarea aplicada (actualización 2026-03-30 - mejora de búsqueda en Venta rápida)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** alinear `Venta rápida` al mismo patrón de autocompletado usado en Ventas/Presupuestos.
+- **Detalle técnico:**
+  1. input de búsqueda con `@bind:event="oninput"` para respuesta en tiempo real,
+  2. mínimo de 3 letras para mostrar sugerencias,
+  3. mensajes guía de estado (mínimo/no resultados) para mejorar descubribilidad,
+  4. fix adicional de eliminación de línea (`rowIndex` + `type="button"`) para evitar capturas inválidas/submits involuntarios.
+- **Impacto UX:** listado de productos más manejable cuando el catálogo crece y flujo de selección más claro en mostrador.

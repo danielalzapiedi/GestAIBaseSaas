@@ -163,6 +163,12 @@
 - **Detalle técnico:** se eliminó la métrica de conteo de SKUs (`Productos + Variantes`) por no aportar valor operativo directo en la vista principal; la grilla superior pasó de 4 a 3 cards con ancho equilibrado (`col-xl-4`).
 - **Impacto UX:** cabecera más clara, menos ruido y foco en indicadores útiles para decisión comercial.
 
+## Tarea aplicada (actualización 2026-03-30 - fix selección menú importación/productos)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Evitar doble marcado de navegación al ingresar a Importación.
+- **Detalle técnico:** en `MainLayout.razor` se configuró `Match=\"NavLinkMatch.All\"` para el link `/products`, evitando que quede activo por prefijo cuando la ruta actual es `/products/import`.
+- **Impacto UX:** al abrir Importación queda activo solo ese menú, sin resaltar también Productos.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

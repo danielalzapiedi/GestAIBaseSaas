@@ -3,7 +3,7 @@
 ## Modo actual
 - **Modo:** Diagnóstico de producto continuo (sin releases activas)
 - **Estado:** En progreso
-- **Fecha de actualización:** 2026-03-29
+- **Fecha de actualización:** 2026-03-30
 
 ## Contexto
 - El equipo opera en evolución continua por backlog priorizado.
@@ -390,3 +390,72 @@
 ## Próximo paso recomendado
 - Ejecutar validación visual completa cross-device (desktop/notebook/mobile) sobre los módulos comerciales más usados.
 - Mantener checklist visual en QA para prevenir regresiones de legibilidad y layout.
+
+## Tarea aplicada (actualización 2026-03-30 - hardening null-safe en listados paginados)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Corrección preventiva de nulidad en respuestas paginadas de API para evitar crash de UI cuando `Data` llega nulo sin excepción HTTP.
+- **Detalle técnico:**
+  1. se agregó fallback explícito `_result ??= new PagedResult<...>(...)` en cargas de listados de `Clientes`, `Presupuestos`, `Productos`, `Sucursales`, `Proveedores`, `Ventas`, `Compras`, `Remitos`, `Facturas`, `Listas de precios` y `Tenants`,
+  2. en `DeliveryNotes` se expandió `Load()` para aplicar el mismo contrato null-safe,
+  3. se mantiene comportamiento funcional actual (pantalla vacía controlada) en lugar de riesgo de `NullReferenceException` en render.
+- **Impacto funcional:** mayor resiliencia ante respuestas inconsistentes del backend o envelopes con `Success=false` y `Data=null`, reduciendo riesgo de regresión visible en navegación/listados.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo)
+1. **Product Manager:** validó que el trabajo entra en modo diagnóstico continuo y priorizó robustez transversal.
+2. **Analyst:** detectó riesgo funcional repetido: cargas paginadas sin fallback nulo en múltiples pantallas.
+3. **UX:** definió criterio de experiencia: ante datos nulos, mostrar estado vacío/estable y nunca error técnico de render.
+4. **Architect:** eligió cambio de bajo riesgo y alto alcance: fallback local por pantalla sin romper contratos API.
+5. **Developer:** implementó hardening null-safe en todos los listados críticos identificados.
+6. **QA:** ejecutó chequeos de consistencia de cambios y validación estática; dejó advertido límite de entorno para build/test (`dotnet` no disponible).
+
+## Tarea aplicada (actualización 2026-03-30 - hardening centralizado de envelopes AppResult)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** corregir inconsistencia de manejo de errores cuando la API responde HTTP 200 pero `AppResult.Success=false`.
+- **Detalle técnico:**
+  1. en `GestAI.Web/ApiClient.cs` se agregó validación centralizada post-deserialización para `AppResult` y `AppResult<T>`,
+  2. si el envelope llega en estado no exitoso, ahora se lanza `ApiClientException` con `Message/ErrorCode` del envelope,
+  3. la validación se aplica en `GetAsync`, `PostAsync<TRequest,TResponse>`, `PutAsync<TRequest,TResponse>` y `DeleteAsync<TResponse>`.
+- **Impacto funcional:** la UI deja de interpretar envelopes fallidos como respuestas válidas y pasa a activar el flujo de error controlado (mensajes + fallback), reduciendo inconsistencias y riesgos de estado nulo silencioso.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo, iteración 2)
+1. **Product Manager:** priorizó resolver la causa sistémica por encima de fixes puntuales por pantalla.
+2. **Analyst:** identificó que el bug raíz era la aceptación de `Success=false` como “éxito técnico”.
+3. **UX:** validó que el usuario debe ver feedback de error consistente y no una UI en estado ambiguo.
+4. **Architect:** definió endurecimiento en capa `ApiClient` para normalizar comportamiento transversal.
+5. **Developer:** implementó validación central de envelopes y reutilizó `ApiClientException` existente.
+6. **QA:** ejecutó validación estática y checklist de riesgo de regresión; build/tests pendientes por limitación de entorno (`dotnet` no disponible).
+
+## Tarea aplicada (actualización 2026-03-30 - cobertura AppResult en comandos sin payload tipado)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** extender hardening de `ApiClient` a comandos que no esperan DTO de respuesta (`PostAsync<TRequest>`, `PutAsync<TRequest>`, `DeleteAsync`).
+- **Síntoma detectado:** cuando esos comandos devolvían HTTP 200 con body `AppResult { Success = false }`, la UI lo trataba como éxito porque no deserializaba ni validaba el envelope.
+- **Detalle técnico:**
+  1. se incorporó `EnsureAppResultEnvelopeSuccessOrThrowIfPresentAsync` para leer/validar envelopes JSON en respuestas con contenido,
+  2. se invocó esa validación luego de `EnsureSuccessOrThrowAsync` en `PostAsync<TRequest>`, `PutAsync<TRequest>` y `DeleteAsync`,
+  3. para payloads no-JSON o no-`AppResult`, el método no interviene (fallback seguro sin romper compatibilidad).
+- **Impacto funcional:** errores lógicos del backend en comandos ya no pasan silenciosamente; se activa manejo de error consistente en la UI.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo, iteración 3)
+1. **Product Manager:** priorizó cerrar la brecha remanente de comandos sin respuesta tipada.
+2. **Analyst:** verificó que el bug persistía en operaciones de escritura pese al hardening previo.
+3. **UX:** confirmó que los comandos deben mostrar feedback de error cuando el backend rechaza la operación.
+4. **Architect:** definió extensión de la validación en capa de cliente HTTP para mantener coherencia transversal.
+5. **Developer:** implementó validación opcional de envelope en métodos `void` del cliente.
+6. **QA:** validó consistencia de contrato y riesgo de regresión bajo en rutas no-JSON.
+
+## Tarea aplicada (actualización 2026-03-30 - refactor tipado de envelopes AppResult)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** eliminar fragilidad por reflexión en validación de envelopes `AppResult` del cliente web.
+- **Detalle técnico:**
+  1. se introdujo `IAppResultEnvelope` en `CommonDtos` y `AppResult`/`AppResult<T>` ahora implementan ese contrato,
+  2. `ApiClient` dejó de inspeccionar `AppResult<T>` vía reflection y pasó a validación tipada (`payload is IAppResultEnvelope envelope`),
+  3. se mantiene el mismo comportamiento funcional de error (`ApiClientException`) pero con menor deuda técnica y mejor mantenibilidad.
+- **Impacto técnico:** menor complejidad, menos puntos frágiles por nombres de propiedades en runtime, y mejor consistencia arquitectónica en la capa de transporte.
+
+## Flujo de trabajo aplicado (modo resolver bugs - equipo, iteración 4)
+1. **Product Manager:** priorizó deuda técnica crítica en manejo transversal de errores.
+2. **Analyst:** identificó riesgo de regresión por uso de reflection en paths calientes de cliente.
+3. **UX:** validó que el cambio no altera feedback al usuario (solo robustez interna).
+4. **Architect:** definió contrato explícito común para envelopes de resultado.
+5. **Developer:** implementó interfaz compartida y simplificó validación en `ApiClient`.
+6. **QA:** validó coherencia de tipos y ausencia de cambios en contratos públicos de API.

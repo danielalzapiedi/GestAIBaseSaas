@@ -192,6 +192,7 @@ else
     {
         _loaded = false;
         _result = (await Api.GetAsync<AppResult<PagedResult<PriceListListItemDto>>>("api/commerce/price-lists?page=1&pageSize=20"))?.Data;
+        _result ??= new PagedResult<PriceListListItemDto>(new List<PriceListListItemDto>(), 0, 1, 20);
         _loaded = true;
     }
 

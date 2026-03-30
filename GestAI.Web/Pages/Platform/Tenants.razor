@@ -212,6 +212,7 @@ else
         _loaded = false;
         var url = $"api/platform/tenants?search={Uri.EscapeDataString(_search ?? string.Empty)}&page={_page}&pageSize={PageSize}";
         _result = (await Api.GetAsync<AppResult<PagedResult<PlatformTenantListItemDto>>>(url))?.Data;
+        _result ??= new PagedResult<PlatformTenantListItemDto>(new List<PlatformTenantListItemDto>(), 0, _page, PageSize);
         _loaded = true;
     }
 

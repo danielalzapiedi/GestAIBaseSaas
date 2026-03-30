@@ -230,6 +230,7 @@
             var status = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&status={_status}";
             var customer = _customerId == 0 ? string.Empty : $"&customerId={_customerId}";
             _result = (await Api.GetAsync<AppResult<PagedResult<SaleListItemDto>>>($"api/commerce/sales?search={Uri.EscapeDataString(_search ?? string.Empty)}{status}{customer}&page={_page}&pageSize={PageSize}"))?.Data;
+            _result ??= new PagedResult<SaleListItemDto>(new List<SaleListItemDto>(), 0, _page, PageSize);
         }
         catch (ApiClient.ApiClientException ex)
         {

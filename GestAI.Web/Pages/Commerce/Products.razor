@@ -380,6 +380,7 @@
             var category = _selectedCategoryId > 0 ? $"&categoryId={_selectedCategoryId}" : string.Empty;
             var active = string.IsNullOrWhiteSpace(_status) ? string.Empty : $"&isActive={_status}";
             _result = (await Api.GetAsync<AppResult<PagedResult<ProductListItemDto>>>($"api/commerce/products?search={Uri.EscapeDataString(_search ?? string.Empty)}{category}{active}&page={_page}&pageSize={PageSize}"))?.Data;
+            _result ??= new PagedResult<ProductListItemDto>(new List<ProductListItemDto>(), 0, _page, PageSize);
         }
         catch (ApiClient.ApiClientException ex)
         {

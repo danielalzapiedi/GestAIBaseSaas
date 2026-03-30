@@ -1,5 +1,5 @@
 @page "/customers"
-@page "/customers/new"
+@page "/customers/{Mode}"
 @page "/customers/edit/{EditId:int}"
 @using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components.Routing
@@ -159,6 +159,7 @@ else
 }
 
 @code {
+    [Parameter] public string? Mode { get; set; }
     [Parameter] public int? EditId { get; set; }
 
     private PagedResult<CustomerListItemDto>? _result;
@@ -173,18 +174,8 @@ else
     private string? _error;
     private string? _success;
 
-    private string CurrentRoute
-    {
-        get
-        {
-            var relative = Nav.ToBaseRelativePath(Nav.Uri);
-            var withoutQuery = relative.Split('?', '#')[0];
-            return withoutQuery.TrimEnd('/').ToLowerInvariant();
-        }
-    }
-
-    private bool IsNewRoute => CurrentRoute == "customers/new";
-    private bool IsEditRoute => CurrentRoute.StartsWith("customers/edit/", StringComparison.Ordinal);
+    private bool IsNewRoute => string.Equals(Mode, "new", StringComparison.OrdinalIgnoreCase);
+    private bool IsEditRoute => EditId.HasValue;
     private bool IsEditorRoute => IsNewRoute || IsEditRoute;
     private bool HasLoadError => !IsEditorRoute && !string.IsNullOrWhiteSpace(_error) && (_result?.Items.Count ?? 0) == 0;
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);

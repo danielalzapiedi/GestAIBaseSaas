@@ -82,7 +82,7 @@
 - **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
 - **Tarea:** Corrección de navegación y estado en `Clientes` para alta nueva.
 - **Síntoma reportado:** en algunos casos el botón “Nuevo cliente” requería doble click y, tras editar un cliente, al crear uno nuevo se arrastraban datos del último editado.
-- **Detalle técnico:** se reemplazó la detección de ruta basada en `EndsWith` por una normalización robusta de URL (`ToBaseRelativePath` + limpieza de query/trailing slash), se separó `IsEditRoute`, y se inicializa `_form` en `NewItem()` antes de navegar.
+- **Detalle técnico:** se cambió el enrutado a parámetro explícito (`@page "/customers/{Mode}"`) para que la transición `"/customers"` → `"/customers/new"` dispare siempre actualización de parámetros; `IsNewRoute` ahora depende de `Mode == "new"` y `IsEditRoute` de `EditId`. Además, `NewItem()` inicializa `_form` antes de navegar.
 - **Impacto UX/funcional:** apertura consistente con un solo click y formulario de alta siempre limpio, sin datos residuales de edición.
 
 ## Flujo de trabajo aplicado (modo bugs)

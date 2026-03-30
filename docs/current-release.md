@@ -516,3 +516,13 @@
   2. `Warehouses`: se oculta bloque de filtros durante edición para mantener foco de pantalla en formulario,
   3. se agregaron métodos `BackToList` con validación de cambios pendientes donde aplica.
 - **Impacto UX:** uniformidad de comportamiento con la premisa global (nuevo/editar en pantalla dedicada), reduciendo ambigüedad de “modal lateral”.
+
+## Tarea aplicada (actualización 2026-03-30 - presupuestos en ruta dedicada para nuevo/editar)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** eliminar definitivamente percepción de modal en `Presupuestos`.
+- **Detalle técnico:**
+  1. `Quotes` ahora expone rutas explícitas para edición: `/quotes/new` y `/quotes/edit/{id}`,
+  2. `NewItem` y `Edit` navegan por ruta; `Save/Cancel/BackToList` retornan a `/quotes`,
+  3. se migró la carga del editor a `OnParametersSetAsync` para sincronizar estado de formulario con navegación,
+  4. se ajustó microcopy para remover referencia a “editor lateral”.
+- **Impacto UX:** nuevo/editar queda en flujo de pantalla dedicada real (por ruta), alineado a la premisa global del producto.

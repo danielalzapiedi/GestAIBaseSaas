@@ -1,4 +1,6 @@
 @page "/quotes"
+@page "/quotes/{Mode}"
+@page "/quotes/edit/{EditId:int}"
 @using GestAI.Web.Dtos
 @using GestAI.Web.Service
 @using Microsoft.AspNetCore.Components.Web
@@ -87,7 +89,7 @@
             @if (_result?.Items.Count == 0)
             {
                 <EmptyState Title="Todavía no hay presupuestos cargados"
-                            Description="Podés crear el primer presupuesto desde el editor lateral sin salir de esta pantalla."
+                            Description="Podés crear el primer presupuesto desde la pantalla de edición."
                             Icon="bi-file-earmark-text">
                     <button class="btn btn-primary" type="button" @onclick="NewItem">Nuevo presupuesto</button>
                 </EmptyState>
@@ -267,6 +269,9 @@
 </div>
 
 @code {
+    [Parameter] public string? Mode { get; set; }
+    [Parameter] public int? EditId { get; set; }
+
     private PagedResult<QuoteListItemDto>? _result;
     private CommercialDocumentSeedDataDto _seed = new(Array.Empty<LookupDto>(), Array.Empty<CommercialSkuLookupDto>(), Array.Empty<CommercialSkuLookupDto>());
     private readonly List<CommercialSkuLookupDto> _skuIndex = new();
@@ -288,9 +293,13 @@
     private string? _success;
     private string? _loadError;
     private string _formSnapshot = string.Empty;
+    private bool _seedLoaded;
 
+    private bool IsNewRoute => string.Equals(Mode, "new", StringComparison.OrdinalIgnoreCase);
+    private bool IsEditRoute => EditId.HasValue;
+    private bool IsEditorRoute => IsNewRoute || IsEditRoute;
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
-    private bool HasLoadError => !_showForm && !string.IsNullOrWhiteSpace(_loadError);
+    private bool HasLoadError => !IsEditorRoute && !string.IsNullOrWhiteSpace(_loadError);
     private int ConvertibleCount => _result?.Items.Count(x => x.CanConvertToSale) ?? 0;
     private decimal VisibleTotal => _result?.Items.Sum(x => x.Total) ?? 0m;
     private string SelectedCustomerLabel => _customerId == 0 ? "Todos" : _seed.Customers.FirstOrDefault(x => x.Id == _customerId)?.Name ?? "Cliente";
@@ -300,9 +309,27 @@
         ? new()
         : _skuIndex.Where(x => x.IsActive && (x.Label.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase) || x.InternalCode.Contains(_quickSearch, StringComparison.OrdinalIgnoreCase))).Take(6).ToList();
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        await LoadSeed();
+        if (!_seedLoaded)
+        {
+            await LoadSeed();
+            _seedLoaded = true;
+        }
+
+        _showForm = IsEditorRoute;
+        if (IsNewRoute)
+        {
+            PrepareNewForm();
+            return;
+        }
+
+        if (IsEditRoute && EditId.HasValue)
+        {
+            await LoadEditor(EditId.Value);
+            return;
+        }
+
         await Load();
     }
 
@@ -310,6 +337,7 @@
     {
         _showForm = false;
         _error = null;
+        Navigation.NavigateTo("/quotes");
     }
 
     private async Task LoadSeed()
@@ -366,7 +394,7 @@
         Telemetry.Track("quotes", "clear-filters", "success");
     }
 
-    private void NewItem()
+    private void PrepareNewForm()
     {
         _error = null;
         _success = null;
@@ -387,7 +415,17 @@
         MarkClean();
     }
 
-    private async Task Edit(int id)
+    private void NewItem()
+    {
+        _error = null;
+        _success = null;
+        Navigation.NavigateTo("/quotes/new");
+    }
+
+    private void Edit(int id)
+        => Navigation.NavigateTo($"/quotes/edit/{id}");
+
+    private async Task LoadEditor(int id)
     {
         _error = null;
         _success = null;
@@ -460,7 +498,7 @@
             _showForm = false;
             _success = "Presupuesto guardado correctamente.";
             Telemetry.Track("quotes", "save", "success", _form.Id == 0 ? "create" : "update");
-            await Load();
+            Navigation.NavigateTo("/quotes");
         }
         catch (ApiClient.ApiClientException ex)
         {
@@ -527,6 +565,7 @@
         if (!await ConfirmDiscardIfDirtyAsync())
             return;
         _showForm = false;
+        Navigation.NavigateTo("/quotes");
     }
     private void OpenDetail(int id) => Navigation.NavigateTo($"/quotes/{id}");
     private async Task PrevPage() { if (_page > 1) { _page--; await Load(); } }

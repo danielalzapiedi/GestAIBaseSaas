@@ -337,6 +337,12 @@
 - **Detalle técnico:** en `.ui-list-page-header` se forzó layout con `justify-content/align-items` a inicio y en `.ui-list-page-header-meta` se fijó `width:100%` + `justify-content:flex-start` para que botones/chips queden siempre a la izquierda.
 - **Impacto UX:** criterio visual único en todas las pantallas con `ListPageHeader`, sin desplazamientos de acciones hacia la derecha según largo de texto.
 
+## Tarea aplicada (actualización 2026-03-30 - centrado de texto en `btn-outline-secondary`)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** corregir descentrado visual de texto detectado en botones `btn-outline-secondary`.
+- **Detalle técnico:** se definió `display:inline-flex` con `align-items:center` y `justify-content:center` para `btn-outline-secondary`, asegurando centrado consistente de label en alto/ancho.
+- **Impacto UX:** botones secundarios con lectura centrada y apariencia estable en headers, filtros y acciones de navegación.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

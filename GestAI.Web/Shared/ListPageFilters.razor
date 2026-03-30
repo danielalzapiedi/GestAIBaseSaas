@@ -1,0 +1,10 @@
+<div class="card ui-filter-card @CardCssClass">
+    <div class="card-body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? CardCssClass { get; set; }
+}

@@ -10,27 +10,25 @@
 
 <PageTitle>Categorías</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Categorías</div>
-        <div class="page-hero-subtitle">Ordená el catálogo con una jerarquía clara de categorías y subcategorías.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-diagram-3"></i> @(_result?.TotalCount ?? 0) categorías</span>
+<ListPageHeader Title="Categorías"
+                Subtitle="Ordená el catálogo con una jerarquía clara de categorías y subcategorías."
+                ChipText="@($"{_result?.TotalCount ?? 0} categorías")"
+                ChipIconClass="bi bi-diagram-3">
+    <Actions>
         <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva categoría</button>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
 <FormFeedback Error="@_loadError" />
 
-<div class="card ui-filter-card"><div class="card-body">
+<ListPageFilters>
     <div class="row g-2 align-items-end">
         <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
         <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activas</option><option value="false">Inactivas</option></select></div>
         <div class="col-md-2"><button class="btn btn-outline-primary" @onclick="Search">Buscar</button></div>
         <div class="col-md-3 text-md-end ui-table-meta">Estructura del catálogo</div>
     </div>
-</div></div>
+</ListPageFilters>
 
 <div class="ui-split-layout">
     <div>
@@ -57,8 +55,7 @@
                             <div class="ui-card-subtitle">Vista tabular para edición rápida de la jerarquía.</div>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                    <table class="table table-striped">
+                    <UnifiedGrid>
                         <thead><tr><th>Nombre</th><th>Padre</th><th>Estado</th><th></th></tr></thead>
                         <tbody>
                         @foreach (var item in _result!.Items)
@@ -76,15 +73,8 @@
                             </tr>
                         }
                         </tbody>
-                    </table>
-                    </div>
-                    <div class="ui-action-bar">
-                        <span class="text-muted">Página @_page de @TotalPages</span>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                            <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                        </div>
-                    </div>
+                    </UnifiedGrid>
+                    <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
                 </div>
             </div>
         }

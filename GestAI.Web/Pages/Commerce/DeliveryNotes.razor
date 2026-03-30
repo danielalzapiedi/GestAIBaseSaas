@@ -5,12 +5,9 @@
 
 <PageTitle>Remitos</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Remitos</div>
-        <div class="page-hero-subtitle">El remito representa la entrega física y es el documento que impacta stock en el circuito comercial.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Remitos"
+                Subtitle="El remito representa la entrega física y es el documento que impacta stock en el circuito comercial.">
+    <MetaContent>
         @if (_showForm)
         {
             <button class="btn btn-outline-secondary" type="button" @onclick="CloseCreateForm"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -20,8 +17,8 @@
             <span class="page-hero-chip"><i class="bi bi-truck-flatbed"></i> @(_result?.TotalCount ?? 0) remitos</span>
             <button class="btn btn-primary" type="button" @onclick="OpenCreateForm"><i class="bi bi-plus-circle me-2"></i>Emitir remito</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 <div class="row g-3 ui-summary-grid mb-1">
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Entregados</div><div class="ui-stat-value">@DeliveredCount</div><div class="ui-stat-foot">Remitos sin saldo pendiente.</div></div></div></div>
@@ -34,7 +31,8 @@
     <div class="col-xl-8 @(_showForm ? "d-none" : string.Empty)">
         <div class="card ui-data-card"><div class="card-body">
             <div class="ui-card-header"><div><div class="ui-card-eyebrow">Entregas comerciales</div><h5 class="ui-card-title">Listado de remitos</h5></div></div>
-            <div class="table-responsive"><table class="table table-striped"><thead><tr><th>Remito</th><th>Cliente</th><th>Venta</th><th>Depósito</th><th>Cantidad</th><th>Estado</th><th></th></tr></thead><tbody>
+            <UnifiedGrid>
+            <thead><tr><th>Remito</th><th>Cliente</th><th>Venta</th><th>Depósito</th><th>Cantidad</th><th>Estado</th><th></th></tr></thead><tbody>
             @foreach (var item in _result?.Items ?? Enumerable.Empty<DeliveryNoteListItemDto>())
             {
                 <tr>
@@ -47,7 +45,8 @@
                     <td><a class="btn btn-sm btn-outline-primary" href="/delivery-notes/@item.Id">Detalle</a></td>
                 </tr>
             }
-            </tbody></table></div>
+            </tbody>
+            </UnifiedGrid>
         </div></div>
     </div>
     <div class="@(_showForm ? "col-12" : "col-xl-4")">

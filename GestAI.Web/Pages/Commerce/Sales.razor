@@ -11,17 +11,15 @@
 
 <PageTitle>Ventas</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Ventas</div>
-        <div class="page-hero-subtitle">Registrá ventas simples pero con base correcta para crecer hacia comprobantes y cobranzas futuras.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-receipt-cutoff"></i> @(_result?.TotalCount ?? 0) ventas</span>
+<ListPageHeader Title="Ventas"
+                Subtitle="Registrá ventas simples pero con base correcta para crecer hacia comprobantes y cobranzas futuras."
+                ChipText="@($"{_result?.TotalCount ?? 0} ventas")"
+                ChipIconClass="bi bi-receipt-cutoff">
+    <Actions>
         <a class="btn btn-outline-secondary" href="/sales/quick"><i class="bi bi-lightning-charge me-2"></i>Carga rápida</a>
         <button class="btn btn-primary" type="button" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva venta</button>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
 <div class="row g-3 ui-summary-grid mb-1">
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Total visible</div><div class="ui-stat-value">@VisibleTotal.ToString("C")</div><div class="ui-stat-foot">Importe acumulado de la página.</div></div></div></div>
@@ -30,7 +28,7 @@
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">SKUs</div><div class="ui-stat-value">@_skuIndex.Count</div><div class="ui-stat-foot">Productos y variantes disponibles para venta.</div></div></div></div>
 </div>
 
-<div class="card ui-filter-card"><div class="card-body">
+<ListPageFilters>
     <div class="row g-2 align-items-end">
         <div class="col-lg-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, cliente, presupuesto origen" /></div>
         <div class="col-lg-3"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
@@ -38,7 +36,7 @@
         <div class="col-lg-1"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
         <div class="col-lg-1"><button class="btn btn-outline-secondary w-100" type="button" @onclick="ClearFilters">Limpiar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 <FormFeedback Error="@_loadError" />
 
 <div class="ui-split-layout ui-split-layout-focus-editor">
@@ -69,8 +67,7 @@
             {
                 <div class="card ui-data-card @(_showForm ? "d-none" : string.Empty)"><div class="card-body">
                     <div class="ui-card-header"><div><div class="ui-card-eyebrow">Circuito comercial</div><h5 class="ui-card-title">Listado de ventas</h5><div class="ui-card-subtitle">Cliente, origen y estado en una sola vista operativa.</div></div></div>
-                    <div class="table-responsive">
-                        <table class="table table-striped">
+                    <UnifiedGrid>
                             <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fecha</th><th>Origen</th><th>Total</th><th>Estado</th><th></th></tr></thead>
                             <tbody>
                             @foreach (var item in _result!.Items)
@@ -86,15 +83,8 @@
                                 </tr>
                             }
                             </tbody>
-                        </table>
-                    </div>
-                    <div class="ui-action-bar">
-                        <span class="text-muted">Página @_page de @TotalPages</span>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary" type="button" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                            <button class="btn btn-outline-secondary" type="button" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                        </div>
-                    </div>
+                        </UnifiedGrid>
+                    <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
                 </div></div>
             }
         }

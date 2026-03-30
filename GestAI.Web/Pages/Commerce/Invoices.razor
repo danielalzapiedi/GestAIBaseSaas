@@ -5,12 +5,9 @@
 
 <PageTitle>Facturación</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Facturación</div>
-        <div class="page-hero-subtitle">Ventas y factura son documentos distintos: acá se controla la capa fiscal, el punto de venta y el estado ARCA.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Facturación"
+                Subtitle="Ventas y factura son documentos distintos: acá se controla la capa fiscal, el punto de venta y el estado ARCA.">
+    <MetaContent>
         @if (_showForm)
         {
             <button class="btn btn-outline-secondary" type="button" @onclick="CloseCreateForm"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -21,8 +18,8 @@
             <a class="btn btn-outline-secondary" href="/fiscal-configuration"><i class="bi bi-gear me-2"></i>Configurar ARCA</a>
             <button class="btn btn-primary" type="button" @onclick="OpenCreateForm"><i class="bi bi-plus-circle me-2"></i>Generar factura</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 <div class="row g-3 ui-summary-grid mb-1">
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Autorizadas</div><div class="ui-stat-value">@AuthorizedCount</div><div class="ui-stat-foot">Facturas con CAE/autorización válida.</div></div></div></div>
@@ -31,21 +28,20 @@
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Modo fiscal</div><div class="ui-stat-value">@FiscalModeLabel</div><div class="ui-stat-foot">Configuración activa del tenant.</div></div></div></div>
 </div>
 
-<div class="card ui-filter-card"><div class="card-body">
+<ListPageFilters>
     <div class="row g-2 align-items-end">
         <div class="col-lg-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Factura, venta o cliente" /></div>
         <div class="col-lg-4"><label class="form-label">Venta origen</label><select class="form-select" @bind="_saleId"><option value="0">Todas</option>@foreach (var sale in _seed.Sales){<option value="@sale.Id">@sale.Name</option>}</select></div>
         <div class="col-lg-3"><label class="form-label">Estado fiscal</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<InvoiceStatus>()){<option value="@status">@InvoiceStatusLabel(status)</option>}</select></div>
         <div class="col-lg-1"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 
 <div class="row g-3 mt-1">
     <div class="col-xl-8 @(_showForm ? "d-none" : string.Empty)">
         <div class="card ui-data-card"><div class="card-body">
             <div class="ui-card-header"><div><div class="ui-card-eyebrow">Comprobantes fiscales</div><h5 class="ui-card-title">Listado de facturas</h5></div></div>
-            <div class="table-responsive">
-                <table class="table table-striped">
+            <UnifiedGrid>
                     <thead><tr><th>Factura</th><th>Cliente</th><th>Venta</th><th>Fecha</th><th>Total</th><th>Fiscal</th><th></th></tr></thead>
                     <tbody>
                     @foreach (var item in _result?.Items ?? Enumerable.Empty<CommercialInvoiceListItemDto>())
@@ -61,8 +57,7 @@
                         </tr>
                     }
                     </tbody>
-                </table>
-            </div>
+                </UnifiedGrid>
         </div></div>
     </div>
     <div class="@(_showForm ? "col-12" : "col-xl-4")">

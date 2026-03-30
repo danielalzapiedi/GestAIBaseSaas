@@ -169,6 +169,122 @@
 - **Detalle técnico:** en `MainLayout.razor` se configuró `Match=\"NavLinkMatch.All\"` para el link `/products`, evitando que quede activo por prefijo cuando la ruta actual es `/products/import`.
 - **Impacto UX:** al abrir Importación queda activo solo ese menú, sin resaltar también Productos.
 
+## Tarea aplicada (actualización 2026-03-30 - unificación de grillas comerciales)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Estandarización de grillas principales mediante componente compartido.
+- **Detalle técnico:**
+  1. se creó `UnifiedGrid` como contenedor reutilizable para tabla responsive + estilo `ui-modern-grid`,
+  2. se migraron grillas maestras de Clientes, Presupuestos, Sucursales, Depósitos, Proveedores, Categorías, Ventas, Compras, Facturas, Productos y movimientos de Caja,
+  3. se mantuvo soporte específico para dropdown de acciones (`ui-table-responsive-actions`) en Presupuestos.
+- **Impacto UX:** todas las grillas principales comparten el mismo patrón visual moderno (referencia Clientes/Presupuestos), reduciendo inconsistencias entre módulos.
+
+## Tarea aplicada (actualización 2026-03-30 - unificación de cabecera y filtros en listados)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Estandarizar estructura de cabecera y bloque de filtros en pantallas de listados comerciales.
+- **Detalle técnico:**
+  1. se creó `ListPageHeader` para encapsular `page-hero` con variantes reutilizables (`Actions` y `MetaContent`),
+  2. se creó `ListPageFilters` para encapsular el wrapper `ui-filter-card`,
+  3. se migraron listados de Clientes, Presupuestos, Proveedores, Sucursales, Depósitos, Categorías, Compras, Ventas, Facturas y Productos al patrón común.
+- **Impacto UX:** las pantallas de listado ahora comparten jerarquía visual y estructura de filtros consistente, simplificando mantenimiento y reduciendo divergencias de UI entre módulos.
+
+## Tarea aplicada (actualización 2026-03-30 - unificación de paginación en listados)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Consolidar barra de paginación de listados en un único componente reutilizable.
+- **Detalle técnico:**
+  1. se creó `ListPaginationBar` para estandarizar “Página X de Y” + acciones Anterior/Siguiente,
+  2. se migraron los listados paginados de Clientes, Presupuestos, Proveedores, Sucursales, Depósitos, Categorías, Compras, Ventas y Productos.
+- **Impacto UX:** comportamiento y estilo de paginación homogéneo en todas las opciones de menú con listado paginado.
+
+## Oportunidades detectadas para próxima unificación visual
+1. **`ui-card-header` reusable:** encapsular eyebrow/título/subtítulo para cards de datos, formularios y paneles de ayuda.
+2. **`ui-summary-grid` reusable:** normalizar cards KPI (label/value/foot) en una pieza compartida.
+3. **acciones por fila:** converger todos los listados a menú contextual de tres puntos con reglas de overflow/z-index comunes.
+4. **toolbar de filtros avanzados:** incorporar una variante compacta para módulos con más de 4 filtros manteniendo misma grilla responsive.
+5. **estados operativos comunes:** unificar loading/empty/error con wrappers reutilizables por tipo de pantalla (listado, detalle, editor).
+
+## Tarea aplicada (actualización 2026-03-30 - auditoría visual integral)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Revisión transversal de pantallas para detectar mejoras visuales y oportunidades de unificación futura.
+- **Entregable:** `docs/visual-audit-2026-03-30.md` con:
+  1. cobertura completa de rutas/pantallas revisadas,
+  2. hallazgos de consistencia visual por bloques,
+  3. backlog priorizado por fases (quick wins, transversal y estados),
+  4. criterio de impacto UX y riesgo de mantenimiento.
+- **Impacto de producto:** roadmap visual accionable para seguir consolidando un estilo único en todas las opciones del menú.
+
+## Tarea aplicada (actualización 2026-03-30 - continuidad SaaS en administración de comercios)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** mantener capacidades SaaS (cuenta, usuarios y planes) sin depender del naming “Hospedaje”.
+- **Detalle técnico:**
+  1. se reubicaron las pantallas de cuenta/usuarios a `GestAI.Web/Pages/Saas/Account.razor` y `GestAI.Web/Pages/Saas/Users.razor`,
+  2. se restauraron accesos `/account` y `/users` en el menú de usuario de `MainLayout.razor`,
+  3. se ajustó la auditoría visual para incluir explícitamente la capa de gestión SaaS junto al core comercial.
+- **Impacto UX:** el producto conserva su operación SaaS multi-plan para administrar comercios y mantiene navegación coherente.
+
+## Tarea aplicada (actualización 2026-03-30 - segunda pasada de armonía visual del menú)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** reevaluar consistencia visual en todos los ítems del menú principal.
+- **Entregable:** ampliación de `docs/visual-audit-2026-03-30.md` con:
+  1. matriz por ruta de menú (`Alta/Media` armonía),
+  2. conclusión de brechas remanentes en pantallas satélite,
+  3. batch recomendado para alcanzar 100% de consistencia visual.
+- **Impacto UX:** diagnóstico actualizado y accionable para cerrar diferencias de estilo entre módulos core y secundarios.
+
+## Tarea aplicada (actualización 2026-03-30 - cierre de brechas visuales en pantallas satélite)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** implementar el primer batch de unificación pendiente detectado en la auditoría.
+- **Detalle técnico:**
+  1. `DeliveryNotes` migrada a `ListPageHeader` + `UnifiedGrid`,
+  2. `DocumentHistory` migrada a `ListPageHeader` + `ListPageFilters` + `UnifiedGrid`,
+  3. `Reports` migrada a `ListPageHeader` + `ListPageFilters` + `UnifiedGrid` en tablas operativas,
+  4. `PriceLists` migrada a `ListPageHeader` + `UnifiedGrid` en sus grillas principales.
+- **Impacto UX:** se reduce la brecha de consistencia entre módulos core y satélite, reforzando una experiencia más armónica en todos los ítems clave del menú.
+
+## Tarea aplicada (actualización 2026-03-30 - cierre extendido de consistencia en satélites)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** aplicar un segundo batch para converger cuentas corrientes, inventario y fiscal.
+- **Detalle técnico:**
+  1. `Inventory` migrada a `ListPageHeader` + `ListPageFilters` + `UnifiedGrid` en stock y movimientos,
+  2. `CustomerCurrentAccounts` y `SupplierCurrentAccounts` migradas a `ListPageHeader` + `ListPageFilters` + `UnifiedGrid` en listados y trazabilidad principal,
+  3. `FiscalConfiguration` alineada en cabecera con `ListPageHeader`.
+- **Impacto UX:** el menú queda prácticamente armonizado en su totalidad, con brechas menores concentradas en Caja/Importación.
+
+## Tarea aplicada (actualización 2026-03-30 - convergencia final de caja/importación)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** completar la armonización visual pendiente en Caja e Importación.
+- **Detalle técnico:**
+  1. `Cash` migrada en cabecera a `ListPageHeader`,
+  2. `ProductImport` migrada en cabecera a `ListPageHeader`,
+  3. tabla de preview de `ProductImport` migrada a `UnifiedGrid`.
+- **Impacto UX:** se completa la convergencia visual en módulos operativos clave; la brecha remanente queda acotada a pantallas administrativas puntuales.
+
+## Tarea aplicada (actualización 2026-03-30 - convergencia de auditoría)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** alinear `AuditLog` al patrón compartido de listados.
+- **Detalle técnico:**
+  1. cabecera migrada a `ListPageHeader`,
+  2. filtros migrados a `ListPageFilters`,
+  3. tabla principal migrada a `UnifiedGrid`.
+- **Impacto UX:** la pantalla de auditoría queda visualmente consistente con historial y el resto de listados del menú.
+
+## Tarea aplicada (actualización 2026-03-30 - convergencia visual de tenants)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** alinear `Tenants` al patrón compartido de listados manteniendo su split de gestión con editor lateral.
+- **Detalle técnico:**
+  1. cabecera migrada a `ListPageHeader`,
+  2. filtros migrados a `ListPageFilters`,
+  3. tabla principal migrada a `UnifiedGrid`,
+  4. barra de paginación migrada a `ListPaginationBar`.
+- **Impacto UX:** `Tenants` deja de estar en armonía media y queda consistente con el resto de listados administrativos/comerciales.
+
+## Tarea aplicada (actualización 2026-03-30 - convergencia visual de dashboard)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** alinear cabecera de `Dashboard` al patrón compartido manteniendo su naturaleza de tablero.
+- **Detalle técnico:**
+  1. estado sin módulos operativos migrado a `ListPageHeader`,
+  2. estado principal migrado a `ListPageHeader` con `MetaContent` para chips KPI/contexto.
+- **Impacto UX:** `Dashboard` converge en jerarquía visual de cabecera con el resto del menú sin perder su layout funcional de tablero.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

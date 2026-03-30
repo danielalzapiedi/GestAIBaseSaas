@@ -5,12 +5,9 @@
 
 <PageTitle>Tenants</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Tenants</div>
-        <div class="page-hero-subtitle">Administración central de tenants, owner inicial y estado de cada cuenta de la plataforma.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Tenants"
+                Subtitle="Administración central de tenants, owner inicial y estado de cada cuenta de la plataforma.">
+    <MetaContent>
         @if (_showForm)
         {
             <button class="btn btn-outline-secondary" @onclick="Cancel"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -23,8 +20,8 @@
                 <button class="btn btn-primary" @onclick="NewTenant"><i class="bi bi-plus-circle me-2"></i>Nuevo tenant</button>
             }
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 @if (!_canAccess)
 {
@@ -34,7 +31,7 @@
 }
 else
 {
-    <div class="card ui-filter-card"><div class="card-body">
+    <ListPageFilters>
         <div class="row g-2 align-items-end">
             <div class="col-md-4">
                 <label class="form-label">Buscar</label>
@@ -47,7 +44,7 @@ else
                 Total visible: @(_result?.TotalCount ?? 0) tenants
             </div>
         </div>
-    </div></div>
+    </ListPageFilters>
 
     @if (!_loaded)
     {
@@ -73,8 +70,7 @@ else
                             <div class="ui-card-subtitle">Estado, owner principal y cantidad de usuarios por tenant.</div>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                    <table class="table table-striped">
+                    <UnifiedGrid>
                         <thead>
                             <tr>
                                 <th>Tenant</th>
@@ -90,8 +86,10 @@ else
                             {
                                 <tr>
                                     <td>
-                                        <div class="fw-semibold">@item.Name</div>
-                                        <div class="ui-table-meta">Creado el @item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</div>
+                                        <div class="ui-table-stack">
+                                            <span class="fw-semibold">@item.Name</span>
+                                            <span class="ui-table-meta">Creado el @item.CreatedAtUtc.ToLocalTime().ToString("dd/MM/yyyy")</span>
+                                        </div>
                                     </td>
                                     <td>@item.OwnerName</td>
                                     <td>@item.OwnerEmail</td>
@@ -106,15 +104,11 @@ else
                                 </tr>
                             }
                         </tbody>
-                    </table>
-                    </div>
-                    <div class="ui-action-bar">
-                        <span class="text-muted">Página @_page de @TotalPages</span>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                            <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                        </div>
-                    </div>
+                    </UnifiedGrid>
+                    <ListPaginationBar Page="@_page"
+                                       TotalPages="@TotalPages"
+                                       OnPrevious="PrevPage"
+                                       OnNext="NextPage" />
                 </div>
             </div>
 

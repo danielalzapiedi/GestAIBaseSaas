@@ -4,25 +4,23 @@
 
 <PageTitle>Auditoría</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Auditoría</div>
-        <div class="page-hero-subtitle">Log de negocio legible: usuario, fecha, entidad, acción y resumen entendible para operación administrativa.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-journal-text"></i> @TotalItems registros</span>
+<ListPageHeader Title="Auditoría"
+                Subtitle="Log de negocio legible: usuario, fecha, entidad, acción y resumen entendible para operación administrativa."
+                ChipText="@($"{TotalItems} registros")"
+                ChipIconClass="bi bi-journal-text">
+    <Actions>
         <a class="btn btn-outline-secondary" href="/document-history">Ver historial documental</a>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
-<div class="card ui-filter-card mb-3"><div class="card-body">
+<ListPageFilters CardCssClass="mb-3">
     <div class="row g-2 align-items-end">
         <div class="col-lg-4"><label class="form-label">Entidad</label><input class="form-control" @bind="_entityName" placeholder="Sale, PurchaseDocument, CommercialInvoice..." /></div>
         <div class="col-lg-4"><label class="form-label">Usuario</label><input class="form-control" @bind="_userName" placeholder="Nombre o email" /></div>
         <div class="col-lg-2"><label class="form-label">Desde</label><input class="form-control" type="date" @bind-value="_from" /></div>
         <div class="col-lg-2"><button class="btn btn-outline-primary w-100" type="button" @onclick="Load">Filtrar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 
 @if (_items is null)
 {
@@ -53,8 +51,7 @@ else
                 </div>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-striped">
+            <UnifiedGrid>
                     <thead>
                         <tr>
                             <th>Fecha</th>
@@ -81,8 +78,7 @@ else
                         </tr>
                     }
                     </tbody>
-                </table>
-            </div>
+            </UnifiedGrid>
         </div>
     </div>
 }

@@ -14,12 +14,8 @@
 
 <PageTitle>Clientes</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Clientes</div>
-        <div class="page-hero-subtitle">Centralizá datos comerciales y mantené un padrón claro de clientes.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Clientes" Subtitle="Centralizá datos comerciales y mantené un padrón claro de clientes.">
+    <MetaContent>
         @if (IsEditorRoute)
         {
             <button class="btn btn-outline-secondary" @onclick="BackToList"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -29,8 +25,8 @@
             <span class="page-hero-chip"><i class="bi bi-person-vcard"></i> @(_result?.TotalCount ?? 0) clientes</span>
             <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo cliente</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 @if (!_loaded)
 {
@@ -99,14 +95,14 @@ else if (_result?.Items.Count == 0)
 else
 {
     <FormFeedback Error="@_error" Success="@_success" />
-    <div class="card ui-filter-card"><div class="card-body">
+    <ListPageFilters>
         <div class="row g-2 align-items-end">
             <div class="col-lg-5 col-md-12"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" @onkeydown="HandleSearchKeyDown" placeholder="Nombre, doc, teléfono" /></div>
             <div class="col-lg-3 col-md-6"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
             <div class="col-lg-2 col-md-3"><button class="btn btn-outline-primary w-100 text-nowrap" @onclick="Search">Buscar</button></div>
             <div class="col-lg-2 col-md-3"><button class="btn btn-outline-secondary w-100 text-nowrap" @onclick="ClearFilters">Limpiar</button></div>
         </div>
-    </div></div>
+    </ListPageFilters>
 
     <div class="card ui-data-card">
         <div class="card-body">
@@ -117,8 +113,7 @@ else
                     <div class="ui-card-subtitle">Información principal y segmento comercial.</div>
                 </div>
             </div>
-            <div class="table-responsive">
-            <table class="table ui-modern-grid">
+            <UnifiedGrid>
                 <thead><tr><th>Nombre</th><th>Documento</th><th>Teléfono</th><th>Localidad</th><th>Tipo</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                 @foreach (var item in _result!.Items)
@@ -145,15 +140,8 @@ else
                     </tr>
                 }
                 </tbody>
-            </table>
-            </div>
-            <div class="ui-action-bar">
-                <span class="text-muted">Página @_page de @TotalPages</span>
-                <div class="btn-group">
-                    <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                    <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                </div>
-            </div>
+            </UnifiedGrid>
+            <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
         </div>
     </div>
 }

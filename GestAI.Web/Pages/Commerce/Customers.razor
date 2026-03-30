@@ -124,12 +124,12 @@ else
                 @foreach (var item in _result!.Items)
                 {
                     <tr>
-                        <td class="fw-semibold ui-cell-truncate" title="@item.Name">@item.Name</td>
-                        <td>@(item.DocumentNumber ?? "-")</td>
-                        <td class="ui-cell-truncate" title="@(item.Phone ?? "-")">@(item.Phone ?? "-")</td>
-                        <td class="ui-cell-truncate" title="@(item.City ?? "-")">@(item.City ?? "-")</td>
-                        <td><StatusBadge Text="@item.CustomerType.ToString()" /></td>
-                        <td><StatusBadge IsActive="@item.IsActive" /></td>
+                        <td><div class="ui-table-stack"><span class="fw-semibold ui-cell-truncate" title="@item.Name">@item.Name</span></div></td>
+                        <td><div class="ui-table-stack"><span>@(item.DocumentNumber ?? "-")</span></div></td>
+                        <td><div class="ui-table-stack"><span class="ui-cell-truncate" title="@(item.Phone ?? "-")">@(item.Phone ?? "-")</span></div></td>
+                        <td><div class="ui-table-stack"><span class="ui-cell-truncate" title="@(item.City ?? "-")">@(item.City ?? "-")</span></div></td>
+                        <td><div class="ui-table-stack"><StatusBadge Text="@item.CustomerType.ToString()" /></div></td>
+                        <td><div class="ui-table-stack"><StatusBadge IsActive="@item.IsActive" /></div></td>
                         <td class="text-end">
                             <div class="dropdown table-actions">
                                 <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">

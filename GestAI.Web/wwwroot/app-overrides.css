@@ -508,6 +508,11 @@ body {
     background: #fff;
 }
 
+.ui-modern-grid tbody td .ui-table-stack {
+    min-height: 40px;
+    justify-content: center;
+}
+
 .ui-modern-grid tbody tr:nth-child(even) td {
     background: #f8fbff;
 }

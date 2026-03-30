@@ -151,6 +151,12 @@
 - **Detalle técnico:** se creó el estilo compartido `ui-modern-grid` (cabecera moderna, zebra suave, hover consistente) y se aplicó en ambas tablas principales para eliminar diferencias de apariencia.
 - **Impacto UX:** percepción uniforme, moderna y consistente entre pantallas maestras comerciales.
 
+## Tarea aplicada (actualización 2026-03-30 - alineación filas grilla clientes)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Corrección de desalineación visual entre columnas por fila en Clientes.
+- **Detalle técnico:** se estandarizó el contenido de celdas con `ui-table-stack` en todas las columnas de datos y se fijó altura mínima homogénea por celda en `ui-modern-grid`.
+- **Impacto UX:** filas alineadas de forma consistente, con altura y ritmo visual equivalentes a Presupuestos.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

@@ -506,3 +506,13 @@
   2. al abrir editor (`_showForm=true`) ahora se ocultan KPIs/filtros/listado y el editor ocupa ancho completo,
   3. se agregaron métodos `BackToList` con guard de cambios pendientes para mantener consistencia de navegación segura.
 - **Impacto UX:** nuevo/editar se percibe como flujo de pantalla dedicada dentro de la ruta, evitando sensación de modal lateral y mejorando foco operativo.
+
+## Tarea aplicada (actualización 2026-03-30 - extensión de edición en pantalla completa a maestros)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** extender la premisa de edición en pantalla completa a módulos maestros donde persistía patrón lateral.
+- **Pantallas ajustadas:** `Categorías`, `Productos` y `Depósitos`.
+- **Detalle técnico:**
+  1. `Categories` y `Products`: al abrir editor se ocultan filtros/KPIs/listado y se habilita CTA `Volver al listado`; el editor pasa a ancho completo,
+  2. `Warehouses`: se oculta bloque de filtros durante edición para mantener foco de pantalla en formulario,
+  3. se agregaron métodos `BackToList` con validación de cambios pendientes donde aplica.
+- **Impacto UX:** uniformidad de comportamiento con la premisa global (nuevo/editar en pantalla dedicada), reduciendo ambigüedad de “modal lateral”.

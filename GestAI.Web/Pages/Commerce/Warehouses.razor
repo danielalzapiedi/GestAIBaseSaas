@@ -24,15 +24,18 @@
     </MetaContent>
 </ListPageHeader>
 
-<ListPageFilters>
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Sucursal</label><select class="form-select" @bind="_selectedBranchId"><option value="0">Todas</option>@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
-        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
-    </div>
-</ListPageFilters>
+@if (!_showForm)
+{
+    <ListPageFilters>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Sucursal</label><select class="form-select" @bind="_selectedBranchId"><option value="0">Todas</option>@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
+        </div>
+    </ListPageFilters>
+}
 
 @if (!_loaded)
 {

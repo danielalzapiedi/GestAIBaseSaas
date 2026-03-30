@@ -15,23 +15,36 @@
                 ChipText="@($"{_result?.TotalCount ?? 0} categorías")"
                 ChipIconClass="bi bi-diagram-3">
     <Actions>
-        <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva categoría</button>
+        @if (_showForm)
+        {
+            <button class="btn btn-outline-secondary" type="button" @onclick="BackToList"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva categoría</button>
+        }
     </Actions>
 </ListPageHeader>
 
-<FormFeedback Error="@_loadError" />
+@if (!_showForm)
+{
+    <FormFeedback Error="@_loadError" />
+}
 
-<ListPageFilters>
-    <div class="row g-2 align-items-end">
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
-        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activas</option><option value="false">Inactivas</option></select></div>
-        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
-        <div class="col-12 col-md-6 col-lg-2 text-md-end ui-table-meta">Estructura del catálogo</div>
-    </div>
-</ListPageFilters>
+@if (!_showForm)
+{
+    <ListPageFilters>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activas</option><option value="false">Inactivas</option></select></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+            <div class="col-12 col-md-6 col-lg-2 text-md-end ui-table-meta">Estructura del catálogo</div>
+        </div>
+    </ListPageFilters>
+}
 
 <div class="ui-split-layout">
-    <div>
+    <div class="@(_showForm ? "d-none" : string.Empty)">
         @if (!_loaded)
         {
             <div class="card"><div class="card-body">Cargando categorías...</div></div>
@@ -85,8 +98,8 @@
             </div>
         }
     </div>
-    <div class="ui-section-grid">
-        <div class="card">
+    <div class="ui-section-grid @(_showForm ? "w-100" : string.Empty)">
+        <div class="card @(_showForm ? "d-none" : string.Empty)">
             <div class="card-body">
                 <div class="ui-card-header">
                     <div>
@@ -272,6 +285,13 @@
     }
 
     private async Task Cancel()
+    {
+        if (!await ConfirmDiscardIfDirtyAsync())
+            return;
+        _showForm = false;
+    }
+
+    private async Task BackToList()
     {
         if (!await ConfirmDiscardIfDirtyAsync())
             return;

@@ -145,6 +145,12 @@
 - **Detalle técnico:** se revirtió el tweak de `font-size/padding` en botones y se normalizó la grilla a seis columnas `col-xl-2` para evitar compresión desigual (el problema original estaba en `col-xl-1`).
 - **Impacto UX:** botones conservan estilo estándar y layout más equilibrado en desktop.
 
+## Tarea aplicada (actualización 2026-03-30 - unificación estilo moderno de grillas)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Homogeneización visual de grillas principales en Clientes y Presupuestos.
+- **Detalle técnico:** se creó el estilo compartido `ui-modern-grid` (cabecera moderna, zebra suave, hover consistente) y se aplicó en ambas tablas principales para eliminar diferencias de apariencia.
+- **Impacto UX:** percepción uniforme, moderna y consistente entre pantallas maestras comerciales.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

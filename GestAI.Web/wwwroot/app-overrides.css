@@ -490,6 +490,32 @@ body {
     background: rgba(241, 245, 255, 0.7);
 }
 
+.ui-modern-grid {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.ui-modern-grid thead th {
+    background: #f7faff;
+    color: #64748b;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    border-bottom: 1px solid #e2eaf5;
+}
+
+.ui-modern-grid tbody td {
+    background: #fff;
+}
+
+.ui-modern-grid tbody tr:nth-child(even) td {
+    background: #f8fbff;
+}
+
+.ui-modern-grid tbody tr:hover td {
+    background: #eef4ff;
+}
+
 .btn-group > .btn {
     min-height: 40px;
 }

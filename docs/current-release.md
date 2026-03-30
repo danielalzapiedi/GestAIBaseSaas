@@ -85,6 +85,17 @@
 - **Detalle técnico:** se cambió el enrutado a parámetro explícito (`@page "/customers/{Mode}"`) para que la transición `"/customers"` → `"/customers/new"` dispare siempre actualización de parámetros; `IsNewRoute` ahora depende de `Mode == "new"` y `IsEditRoute` de `EditId`. Además, `NewItem()` inicializa `_form` antes de navegar.
 - **Impacto UX/funcional:** apertura consistente con un solo click y formulario de alta siempre limpio, sin datos residuales de edición.
 
+## Tarea aplicada (actualización 2026-03-30 - presupuestos alineado a premisas de clientes)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Aplicación de las mismas premisas UX/funcionales en pantalla de Presupuestos.
+- **Detalle técnico:**
+  1. búsqueda por Enter en filtros,
+  2. estado explícito de error de carga con CTA de reintento,
+  3. fallback seguro de `_result` ante error para evitar estados nulos frágiles,
+  4. migración de acciones por fila a menú contextual de tres puntos,
+  5. truncado visual en celdas largas de comprobante/cliente.
+- **Impacto UX:** mayor consistencia con Clientes, menor ruido visual en grilla y mejor robustez ante fallos de API.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

@@ -724,6 +724,7 @@ body {
 }
 
 .ui-cell-truncate {
+    display: inline-block;
     max-width: 220px;
     white-space: nowrap;
     overflow: hidden;

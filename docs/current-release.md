@@ -351,6 +351,12 @@
   2. se aplicó en grillas de `Dashboard`, `DeliveryNotes`, `Invoices`, `PriceLists`, `CustomerCurrentAccounts`, `SupplierCurrentAccounts`, `SupplierAccounts` y tablas de líneas en ventas/presupuestos/quick-sale.
 - **Impacto UX:** lectura visual más limpia en grillas con acción única y patrón consistente con el criterio de acciones contextuales.
 
+## Tarea aplicada (actualización 2026-03-30 - stack vertical en cuentas corrientes)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** evitar compresión en notebook de las dos cards principales de Ctas. Clientes y Ctas. Proveedores.
+- **Detalle técnico:** en `CustomerCurrentAccounts` y `SupplierCurrentAccounts` se cambió el primer bloque de dos columnas (`col-xl-6` + `col-xl-6`) a stack vertical (`col-12` + `col-12`) para render full width en todas las resoluciones.
+- **Impacto UX:** mejor legibilidad y menor sensación de pantalla “amontonada”; ambas cards se leen en bloque continuo.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

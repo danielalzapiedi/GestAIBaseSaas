@@ -4,24 +4,21 @@
 
 <PageTitle>Historial documental</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Historial y trazabilidad</div>
-        <div class="page-hero-subtitle">Separa log de negocio legible de historial de cambios estructurado para ventas, compras, facturas, remitos y fiscal.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Historial y trazabilidad"
+                Subtitle="Separa log de negocio legible de historial de cambios estructurado para ventas, compras, facturas, remitos y fiscal.">
+    <MetaContent>
         <a class="btn btn-outline-secondary" href="/audit-log">Ir a auditoría</a>
         <button class="btn btn-primary" type="button" @onclick="Load"><i class="bi bi-arrow-repeat me-2"></i>Actualizar</button>
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
-<div class="card ui-filter-card mb-3"><div class="card-body">
+<ListPageFilters CardCssClass="mb-3">
     <div class="row g-2 align-items-end">
-        <div class="col-lg-4"><label class="form-label">Entidad</label><input class="form-control" @bind="_entity" placeholder="Sale, PurchaseDocument, CommercialInvoice, DeliveryNote..." /></div>
-        <div class="col-lg-6"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Documento, resumen, texto libre" /></div>
-        <div class="col-lg-2"><button class="btn btn-outline-primary w-100" type="button" @onclick="Load">Filtrar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Entidad</label><input class="form-control" @bind="_entity" placeholder="Sale, PurchaseDocument, CommercialInvoice, DeliveryNote..." /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Documento, resumen, texto libre" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" type="button" @onclick="Load">Filtrar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 
 @if (_traceability is null)
 {
@@ -33,7 +30,8 @@ else
         <div class="col-xl-7">
             <div class="card ui-data-card h-100"><div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Historial de cambios</div><h5 class="ui-card-title">Qué cambió y sobre qué documento</h5></div></div>
-                <div class="table-responsive"><table class="table table-striped ui-compact-table"><thead><tr><th>Fecha</th><th>Documento</th><th>Acción</th><th>Resumen</th><th>Usuario</th></tr></thead><tbody>
+                <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
+                <thead><tr><th>Fecha</th><th>Documento</th><th>Acción</th><th>Resumen</th><th>Usuario</th></tr></thead><tbody>
                 @foreach (var item in _traceability.History)
                 {
                     <tr>
@@ -44,7 +42,8 @@ else
                         <td>@(item.UserName ?? "Sistema")</td>
                     </tr>
                 }
-                </tbody></table></div>
+                </tbody>
+                </UnifiedGrid>
             </div></div>
         </div>
         <div class="col-xl-5">

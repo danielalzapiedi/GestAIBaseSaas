@@ -10,12 +10,8 @@
 
 <PageTitle>Depósitos</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Depósitos</div>
-        <div class="page-hero-subtitle">Gestioná depósitos por sucursal y definí cuál es el principal de cada una.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Depósitos" Subtitle="Gestioná depósitos por sucursal y definí cuál es el principal de cada una.">
+    <MetaContent>
         @if (_showForm)
         {
             <button class="btn btn-outline-secondary" @onclick="Cancel"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -25,18 +21,18 @@
             <span class="page-hero-chip"><i class="bi bi-box-seam"></i> @(_result?.TotalCount ?? 0) depósitos</span>
             <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo depósito</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
-<div class="card ui-filter-card"><div class="card-body">
+<ListPageFilters>
     <div class="row g-2 align-items-end">
-        <div class="col-md-3"><label class="form-label">Sucursal</label><select class="form-select" @bind="_selectedBranchId"><option value="0">Todas</option>@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
-        <div class="col-md-3"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
-        <div class="col-md-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-        <div class="col-md-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
-        <div class="col-md-1"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Sucursal</label><select class="form-select" @bind="_selectedBranchId"><option value="0">Todas</option>@foreach (var branch in _branches){<option value="@branch.Id">@branch.Name</option>}</select></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 
 @if (!_loaded)
 {
@@ -65,8 +61,7 @@ else
                         <div class="ui-card-subtitle">Sucursal, indicador principal y estado de cada depósito.</div>
                     </div>
                 </div>
-                <div class="table-responsive">
-                <table class="table table-striped">
+                <UnifiedGrid ActionsDropdown="true">
                     <thead><tr><th>Nombre</th><th>Sucursal</th><th>Principal</th><th>Estado</th><th></th></tr></thead>
                     <tbody>
                     @foreach (var item in _result!.Items)
@@ -76,24 +71,23 @@ else
                             <td>@item.BranchName</td>
                             <td><StatusBadge Text="@(item.IsMain ? "Principal" : "Secundario")" CssClass="@(item.IsMain ? "ui-badge ui-badge-primary" : "ui-badge ui-badge-neutral")" /></td>
                             <td><StatusBadge IsActive="@item.IsActive" /></td>
-                            <td>
-                                <div class="ui-inline-actions">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)">Editar</button>
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)">@(item.IsActive ? "Desactivar" : "Activar")</button>
+                            <td class="text-end">
+                                <div class="dropdown dropstart table-actions">
+                                    <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                        <span class="visually-hidden">Acciones</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                        <li><button class="dropdown-item" type="button" @onclick="() => Edit(item)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                        <li><button class="dropdown-item" type="button" @onclick="() => Toggle(item)"><i class="@($"bi {(item.IsActive ? "bi-toggle-off" : "bi-toggle-on")} me-2")"></i>@(item.IsActive ? "Desactivar" : "Activar")</button></li>
+                                    </ul>
                                 </div>
                             </td>
                         </tr>
                     }
                     </tbody>
-                </table>
-                </div>
-                <div class="ui-action-bar">
-                    <span class="text-muted">Página @_page de @TotalPages</span>
-                    <div class="btn-group">
-                        <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                        <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                    </div>
-                </div>
+                </UnifiedGrid>
+                <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
             </div>
         </div>
 

@@ -13,12 +13,8 @@
 
 <PageTitle>Sucursales</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Sucursales</div>
-        <div class="page-hero-subtitle">Organizá las sucursales del negocio y controlá su estado operativo.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Sucursales" Subtitle="Organizá las sucursales del negocio y controlá su estado operativo.">
+    <MetaContent>
         @if (IsEditorRoute)
         {
             <button class="btn btn-outline-secondary" @onclick="BackToList"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -28,8 +24,8 @@
             <span class="page-hero-chip"><i class="bi bi-shop"></i> @(_result?.TotalCount ?? 0) sucursales</span>
             <button class="btn btn-primary" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva sucursal</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 @if (!_loaded)
 {
@@ -76,14 +72,14 @@ else if (_result?.Items.Count == 0)
 else
 {
     <FormFeedback Error="@_error" Success="@_success" />
-    <div class="card ui-filter-card"><div class="card-body">
+    <ListPageFilters>
         <div class="row g-2 align-items-end">
-            <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre o código" /></div>
-            <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-            <div class="col-md-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
-            <div class="col-md-1"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre o código" /></div>
+            <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
+            <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
         </div>
-    </div></div>
+    </ListPageFilters>
 
     <div class="card ui-data-card">
         <div class="card-body">
@@ -94,8 +90,7 @@ else
                     <div class="ui-card-subtitle">Nombre, código interno y depósitos asociados.</div>
                 </div>
             </div>
-            <div class="table-responsive">
-            <table class="table table-striped">
+            <UnifiedGrid ActionsDropdown="true">
                 <thead><tr><th>Nombre</th><th>Código</th><th>Depósitos</th><th>Estado</th><th></th></tr></thead>
                 <tbody>
                 @foreach (var item in _result!.Items)
@@ -105,24 +100,23 @@ else
                         <td>@item.Code</td>
                         <td>@item.WarehousesCount</td>
                         <td><StatusBadge IsActive="@item.IsActive" /></td>
-                        <td>
-                            <div class="ui-inline-actions">
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)">Editar</button>
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)">@(item.IsActive ? "Desactivar" : "Activar")</button>
+                        <td class="text-end">
+                            <div class="dropdown dropstart table-actions">
+                                <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                    <span class="visually-hidden">Acciones</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                    <li><button class="dropdown-item" type="button" @onclick="() => Edit(item)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                    <li><button class="dropdown-item" type="button" @onclick="() => Toggle(item)"><i class="@($"bi {(item.IsActive ? "bi-toggle-off" : "bi-toggle-on")} me-2")"></i>@(item.IsActive ? "Desactivar" : "Activar")</button></li>
+                                </ul>
                             </div>
                         </td>
                     </tr>
                 }
                 </tbody>
-            </table>
-            </div>
-            <div class="ui-action-bar">
-                <span class="text-muted">Página @_page de @TotalPages</span>
-                <div class="btn-group">
-                    <button class="btn btn-outline-secondary" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                    <button class="btn btn-outline-secondary" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                </div>
-            </div>
+            </UnifiedGrid>
+            <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
         </div>
     </div>
 }

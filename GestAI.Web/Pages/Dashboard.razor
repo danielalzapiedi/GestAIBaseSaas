@@ -11,12 +11,8 @@
 }
 else if (!HasOperationalModules)
 {
-    <section class="page-hero">
-        <div>
-            <div class="page-hero-title">Dashboard comercial</div>
-            <div class="page-hero-subtitle">Todavía no hay módulos operativos habilitados para mostrar indicadores del negocio.</div>
-        </div>
-    </section>
+    <ListPageHeader Title="Dashboard comercial"
+                    Subtitle="Todavía no hay módulos operativos habilitados para mostrar indicadores del negocio." />
 
     <EmptyState Title="Sin información operativa disponible"
                 Description="Cuando el tenant tenga módulos como ventas, presupuestos, clientes o productos, este tablero va a mostrar métricas del comercio y accesos rápidos de trabajo."
@@ -24,12 +20,9 @@ else if (!HasOperationalModules)
 }
 else
 {
-    <section class="page-hero">
-        <div>
-            <div class="page-hero-title">Dashboard comercial</div>
-            <div class="page-hero-subtitle">Seguimiento rápido de la operación del comercio: ventas, presupuestos, clientes, stock y próximos focos de acción.</div>
-        </div>
-        <div class="page-hero-meta">
+    <ListPageHeader Title="Dashboard comercial"
+                    Subtitle="Seguimiento rápido de la operación del comercio: ventas, presupuestos, clientes, stock y próximos focos de acción.">
+        <MetaContent>
             <span class="page-hero-chip"><i class="bi bi-shop-window"></i> @BusinessName</span>
             <span class="page-hero-chip"><i class="bi bi-exclamation-triangle"></i> @TotalAttentionItems focos de atención</span>
             @if (CanAccess(SaasModule.Products))
@@ -40,8 +33,8 @@ else
             {
                 <span class="page-hero-chip"><i class="bi bi-receipt-cutoff"></i> @DraftSalesCount borradores de venta</span>
             }
-        </div>
-    </section>
+        </MetaContent>
+    </ListPageHeader>
 
     <div class="row g-3 ui-summary-grid">
         @if (CanAccess(SaasModule.Sales))
@@ -187,7 +180,7 @@ else
                                         <td>@item.IssuedAtLocal.ToString("dd/MM/yyyy")</td>
                                         <td class="fw-semibold">@item.Total.ToString("C")</td>
                                         <td><StatusBadge Text="@item.StatusLabel" CssClass="@item.StatusCssClass" /></td>
-                                        <td><a class="btn btn-sm btn-outline-primary" href="@item.Href">Abrir</a></td>
+                                        <td><a class="btn btn-sm btn-outline-primary" href="@item.Href" title="Abrir" aria-label="Abrir"><i class="bi bi-box-arrow-up-right"></i></a></td>
                                     </tr>
                                 }
                                 </tbody>

@@ -12,16 +12,14 @@
 
 <PageTitle>Presupuestos</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Presupuestos</div>
-        <div class="page-hero-subtitle">Armá propuestas comerciales reales, con cliente, vigencia, estados claros y conversión posterior a venta.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-file-earmark-text"></i> @(_result?.TotalCount ?? 0) presupuestos</span>
+<ListPageHeader Title="Presupuestos"
+                Subtitle="Armá propuestas comerciales reales, con cliente, vigencia, estados claros y conversión posterior a venta."
+                ChipText="@($"{_result?.TotalCount ?? 0} presupuestos")"
+                ChipIconClass="bi bi-file-earmark-text">
+    <Actions>
         <button class="btn btn-primary" type="button" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nuevo presupuesto</button>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
 <div class="row g-3 ui-summary-grid mb-1">
     <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Convertibles</div><div class="ui-stat-value">@ConvertibleCount</div><div class="ui-stat-foot">Presupuestos válidos y no convertidos en la página.</div></div></div></div>
@@ -29,16 +27,16 @@
     <div class="col-sm-6 col-xl-4"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Cliente filtro</div><div class="ui-stat-value">@SelectedCustomerLabel</div><div class="ui-stat-foot">@StatusFilterLabel</div></div></div></div>
 </div>
 
-<div class="card ui-filter-card"><div class="card-body">
+<ListPageFilters>
     <div class="row g-2 align-items-end">
-        <div class="col-xl-2 col-lg-6"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" @onkeydown="HandleSearchKeyDown" placeholder="Número, cliente" /></div>
-        <div class="col-xl-2 col-lg-6"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
-        <div class="col-xl-2 col-lg-4"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
-        <div class="col-xl-2 col-lg-4"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
-        <div class="col-xl-2 col-lg-2"><button class="btn btn-outline-primary w-100 text-nowrap" type="button" @onclick="Search">Buscar</button></div>
-        <div class="col-xl-2 col-lg-2"><button class="btn btn-outline-secondary w-100 text-nowrap" type="button" @onclick="ClearFilters">Limpiar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" @onkeydown="HandleSearchKeyDown" placeholder="Número, cliente" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Cliente</label><select class="form-select" @bind="_customerId"><option value="0">Todos</option>@foreach (var customer in _seed.Customers){<option value="@customer.Id">@customer.Name</option>}</select></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<QuoteStatus>()){<option value="@status">@QuoteStatusLabel(status)</option>}</select></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Conversión</label><select class="form-select" @bind="_onlyConvertible"><option value="">Todos</option><option value="true">Solo convertibles</option></select></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100 text-nowrap" type="button" @onclick="Search">Buscar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100 text-nowrap" type="button" @onclick="ClearFilters">Limpiar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 <div class="ui-split-layout ui-split-layout-focus-editor">
     <div>
         @if (!_loaded)
@@ -91,8 +89,7 @@
                             <div class="ui-card-subtitle">Con seguimiento de estado, vigencia, cliente y pasaje a venta.</div>
                         </div>
                     </div>
-                    <div class="table-responsive ui-table-responsive-actions">
-                        <table class="table ui-modern-grid">
+                    <UnifiedGrid ActionsDropdown="true">
                             <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fechas</th><th>Items</th><th>Total</th><th>Estado</th><th></th></tr></thead>
                             <tbody>
                             @foreach (var item in _result!.Items)
@@ -123,15 +120,8 @@
                                 </tr>
                             }
                             </tbody>
-                        </table>
-                    </div>
-                    <div class="ui-action-bar">
-                        <span class="text-muted">Página @_page de @TotalPages</span>
-                        <div class="btn-group">
-                            <button class="btn btn-outline-secondary" type="button" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                            <button class="btn btn-outline-secondary" type="button" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                        </div>
-                    </div>
+                        </UnifiedGrid>
+                    <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
                 </div></div>
             }
         }
@@ -220,7 +210,7 @@
                                             <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
                                             <td><input class="form-control" type="number" step="0.01" @bind="line.UnitPrice" /></td>
                                             <td class="fw-semibold">@line.LineSubtotal.ToString("C")</td>
-                                            <td><button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => RemoveLine(i)">Quitar</button></td>
+                                            <td><button class="btn btn-sm btn-outline-danger" type="button" @onclick="() => RemoveLine(i)" title="Quitar línea" aria-label="Quitar línea"><i class="bi bi-trash"></i></button></td>
                                         </tr>
                                     }
                                     </tbody>

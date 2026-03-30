@@ -50,7 +50,7 @@ else
                         <div class="ui-card-subtitle">Roles, estado y permisos asignados por módulo.</div>
                     </div>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive ui-table-responsive-actions">
                 <table class="table table-striped">
                     <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Módulos</th><th>Activo</th><th></th></tr></thead>
                     <tbody>
@@ -65,10 +65,16 @@ else
                             <td><StatusBadge Text="@u.Role.ToString()" /></td>
                             <td>@FormatModules(u)</td>
                             <td><StatusBadge IsActive="@u.IsActive" /></td>
-                            <td>
-                                <div class="ui-inline-actions">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(u)">Editar</button>
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(u)">@(u.IsActive ? "Desactivar" : "Activar")</button>
+                            <td class="text-end">
+                                <div class="dropdown dropstart table-actions">
+                                    <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                        <span class="visually-hidden">Acciones</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                        <li><button class="dropdown-item" type="button" @onclick="() => Edit(u)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                        <li><button class="dropdown-item" type="button" @onclick="() => Toggle(u)"><i class="@($"bi {(u.IsActive ? "bi-toggle-off" : "bi-toggle-on")} me-2")"></i>@(u.IsActive ? "Desactivar" : "Activar")</button></li>
+                                    </ul>
                                 </div>
                             </td>
                         </tr>

@@ -4,24 +4,22 @@
 
 <PageTitle>Reportes operativos</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Reportes operativos</div>
-        <div class="page-hero-subtitle">Ventas, compras, productos movidos, stock y saldos comerciales en una sola vista de gestión.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-calendar-range"></i> @_from.ToString("dd/MM/yyyy") - @_to.ToString("dd/MM/yyyy")</span>
+<ListPageHeader Title="Reportes operativos"
+                Subtitle="Ventas, compras, productos movidos, stock y saldos comerciales en una sola vista de gestión."
+                ChipText="@($"{_from:dd/MM/yyyy} - {_to:dd/MM/yyyy}")"
+                ChipIconClass="bi bi-calendar-range">
+    <Actions>
         <button class="btn btn-primary" type="button" @onclick="Load"><i class="bi bi-arrow-repeat me-2"></i>Actualizar</button>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
-<div class="card ui-filter-card mb-3"><div class="card-body">
+<ListPageFilters CardCssClass="mb-3">
     <div class="row g-2 align-items-end">
-        <div class="col-md-4"><label class="form-label">Desde</label><input class="form-control" type="date" @bind-value="_from" /></div>
-        <div class="col-md-4"><label class="form-label">Hasta</label><input class="form-control" type="date" @bind-value="_to" /></div>
-        <div class="col-md-4"><label class="form-label">Top productos</label><input class="form-control" type="number" min="3" max="20" @bind="_top" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Desde</label><input class="form-control" type="date" @bind-value="_from" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Hasta</label><input class="form-control" type="date" @bind-value="_to" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Top productos</label><input class="form-control" type="number" min="3" max="20" @bind="_top" /></div>
     </div>
-</div></div>
+</ListPageFilters>
 
 @if (_report is null)
 {
@@ -46,8 +44,7 @@ else
         <div class="col-xl-6">
             <div class="card ui-data-card h-100"><div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Ventas por período</div><h5 class="ui-card-title">Serie diaria</h5></div></div>
-                <div class="table-responsive">
-                    <table class="table table-striped ui-compact-table">
+                <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                         <thead><tr><th>Fecha</th><th>Documentos</th><th>Importe</th></tr></thead>
                         <tbody>
                         @foreach (var item in _report.SalesByDay)
@@ -55,15 +52,13 @@ else
                             <tr><td>@item.Date.ToLocalTime().ToString("dd/MM/yyyy")</td><td>@item.Count</td><td class="fw-semibold">@item.Amount.ToString("C")</td></tr>
                         }
                         </tbody>
-                    </table>
-                </div>
+                </UnifiedGrid>
             </div></div>
         </div>
         <div class="col-xl-6">
             <div class="card ui-data-card h-100"><div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Compras por período</div><h5 class="ui-card-title">Serie diaria</h5></div></div>
-                <div class="table-responsive">
-                    <table class="table table-striped ui-compact-table">
+                <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                         <thead><tr><th>Fecha</th><th>Documentos</th><th>Importe</th></tr></thead>
                         <tbody>
                         @foreach (var item in _report.PurchasesByDay)
@@ -71,8 +66,7 @@ else
                             <tr><td>@item.Date.ToLocalTime().ToString("dd/MM/yyyy")</td><td>@item.Count</td><td class="fw-semibold">@item.Amount.ToString("C")</td></tr>
                         }
                         </tbody>
-                    </table>
-                </div>
+                </UnifiedGrid>
             </div></div>
         </div>
     </div>
@@ -81,8 +75,7 @@ else
         <div class="col-xl-6">
             <div class="card ui-data-card h-100"><div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Productos más movidos</div><h5 class="ui-card-title">Ranking comercial</h5></div></div>
-                <div class="table-responsive">
-                    <table class="table table-striped ui-compact-table">
+                <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                         <thead><tr><th>SKU</th><th>Cantidad</th><th>Revenue</th><th>Docs.</th></tr></thead>
                         <tbody>
                         @foreach (var item in _report.TopProducts)
@@ -95,15 +88,13 @@ else
                             </tr>
                         }
                         </tbody>
-                    </table>
-                </div>
+                </UnifiedGrid>
             </div></div>
         </div>
         <div class="col-xl-6">
             <div class="card ui-data-card h-100"><div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Estado básico de stock</div><h5 class="ui-card-title">Alertas de inventario</h5></div></div>
-                <div class="table-responsive">
-                    <table class="table table-striped ui-compact-table">
+                <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                         <thead><tr><th>SKU</th><th>Depósito</th><th>Stock</th><th>Mínimo</th></tr></thead>
                         <tbody>
                         @foreach (var item in _report.Stock.Take(30))
@@ -116,8 +107,7 @@ else
                             </tr>
                         }
                         </tbody>
-                    </table>
-                </div>
+                </UnifiedGrid>
             </div></div>
         </div>
     </div>

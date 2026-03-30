@@ -11,16 +11,14 @@
 
 <PageTitle>Compras</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Compras y abastecimiento</div>
-        <div class="page-hero-subtitle">Emití comprobantes de compra, seguí recepciones pendientes y dejá lista la trazabilidad hacia stock, costo y deuda con proveedores.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-bag-check"></i> @(_result?.TotalCount ?? 0) compras</span>
+<ListPageHeader Title="Compras y abastecimiento"
+                Subtitle="Emití comprobantes de compra, seguí recepciones pendientes y dejá lista la trazabilidad hacia stock, costo y deuda con proveedores."
+                ChipText="@($"{_result?.TotalCount ?? 0} compras")"
+                ChipIconClass="bi bi-bag-check">
+    <Actions>
         <button class="btn btn-primary" type="button" @onclick="NewItem"><i class="bi bi-plus-circle me-2"></i>Nueva compra</button>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
 <div class="row g-3 ui-summary-grid mb-1">
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Monto visible</div><div class="ui-stat-value">@VisibleTotal.ToString("C")</div><div class="ui-stat-foot">Total de la página filtrada.</div></div></div></div>
@@ -29,15 +27,15 @@
     <div class="col-sm-6 col-xl-3"><div class="card ui-stat-card"><div class="card-body"><div class="ui-stat-label">Estrategia costo</div><div class="ui-stat-value text-capitalize">@(_seed?.CostStrategy?.Replace("_", " ") ?? "-")</div><div class="ui-stat-foot">@_seed?.CostStrategyDescription</div></div></div></div>
 </div>
 
-<div class="card ui-filter-card"><div class="card-body">
+<ListPageFilters>
     <div class="row g-2 align-items-end">
-        <div class="col-lg-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, proveedor, comprobante proveedor" /></div>
-        <div class="col-lg-3"><label class="form-label">Proveedor</label><select class="form-select" @bind="_supplierId"><option value="0">Todos</option>@foreach (var supplier in _seed?.Suppliers ?? Array.Empty<LookupDto>()){<option value="@supplier.Id">@supplier.Name</option>}</select></div>
-        <div class="col-lg-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<PurchaseDocumentStatus>()){<option value="@status">@StatusLabel(status)</option>}</select></div>
-        <div class="col-lg-1"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
-        <div class="col-lg-1"><button class="btn btn-outline-secondary w-100" type="button" @onclick="ClearFilters">Limpiar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Número, proveedor, comprobante proveedor" /></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Proveedor</label><select class="form-select" @bind="_supplierId"><option value="0">Todos</option>@foreach (var supplier in _seed?.Suppliers ?? Array.Empty<LookupDto>()){<option value="@supplier.Id">@supplier.Name</option>}</select></div>
+        <div class="col-12 col-md-6 col-lg-2"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option>@foreach (var status in Enum.GetValues<PurchaseDocumentStatus>()){<option value="@status">@StatusLabel(status)</option>}</select></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-primary w-100" type="button" @onclick="Search">Buscar</button></div>
+        <div class="col-12 col-md-6 col-lg-2"><button class="btn btn-outline-secondary w-100" type="button" @onclick="ClearFilters">Limpiar</button></div>
     </div>
-</div></div>
+</ListPageFilters>
 <FormFeedback Error="@_loadError" />
 
 <div class="ui-split-layout ui-split-layout-focus-editor">
@@ -58,8 +56,7 @@
         {
             <div class="card ui-data-card @(_showForm ? "d-none" : string.Empty)"><div class="card-body">
                 <div class="ui-card-header"><div><div class="ui-card-eyebrow">Abastecimiento</div><h5 class="ui-card-title">Listado de compras</h5><div class="ui-card-subtitle">Seguimiento integrado del documento, el proveedor y el avance de recepción.</div></div></div>
-                <div class="table-responsive">
-                    <table class="table table-striped">
+                <UnifiedGrid ActionsDropdown="true">
                         <thead><tr><th>Documento</th><th>Proveedor</th><th>Fecha</th><th>Totales</th><th>Recepción</th><th>Estado</th><th></th></tr></thead>
                         <tbody>
                         @foreach (var item in _result?.Items ?? Array.Empty<PurchaseListItemDto>())
@@ -71,19 +68,23 @@
                                 <td><div class="ui-table-stack"><span class="fw-semibold">@item.Total.ToString("C")</span><span class="ui-table-meta">@item.ItemsCount ítems</span></div></td>
                                 <td><div class="ui-table-stack"><span class="fw-semibold">@item.ReceivedQuantity / @item.OrderedQuantity</span><span class="ui-table-meta">@(item.LastReceiptAtUtc.HasValue ? $"Último ingreso {item.LastReceiptAtUtc.Value.ToLocalTime():dd/MM}" : "Sin ingresos")</span></div></td>
                                 <td><StatusBadge Text="@StatusLabel(item.Status)" CssClass="@StatusClass(item.Status)" /></td>
-                                <td><div class="ui-inline-actions"><button class="btn btn-sm btn-outline-primary" type="button" @onclick="() => Edit(item.Id)">Editar</button><button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => OpenDetail(item.Id)">Detalle</button></div></td>
+                                <td class="text-end">
+                                    <div class="dropdown dropstart table-actions">
+                                        <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                            <span class="visually-hidden">Acciones</span>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                            <li><button class="dropdown-item" type="button" @onclick="() => Edit(item.Id)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                            <li><button class="dropdown-item" type="button" @onclick="() => OpenDetail(item.Id)"><i class="bi bi-eye me-2"></i>Detalle</button></li>
+                                        </ul>
+                                    </div>
+                                </td>
                             </tr>
                         }
                         </tbody>
-                    </table>
-                </div>
-                <div class="ui-action-bar">
-                    <span class="text-muted">Página @_page de @TotalPages</span>
-                    <div class="btn-group">
-                        <button class="btn btn-outline-secondary" type="button" disabled="@(_page <= 1)" @onclick="PrevPage">Anterior</button>
-                        <button class="btn btn-outline-secondary" type="button" disabled="@(_page >= TotalPages)" @onclick="NextPage">Siguiente</button>
-                    </div>
-                </div>
+                    </UnifiedGrid>
+                <ListPaginationBar Page="@_page" TotalPages="@TotalPages" OnPrevious="PrevPage" OnNext="NextPage" />
             </div></div>
         }
     </div>

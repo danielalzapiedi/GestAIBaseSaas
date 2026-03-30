@@ -7,12 +7,9 @@
 
 <PageTitle>Listas de precios</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Listas de precios</div>
-        <div class="page-hero-subtitle">Administrá múltiples listas, precios por producto o variante y actualizaciones masivas con criterio controlado.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Listas de precios"
+                Subtitle="Administrá múltiples listas, precios por producto o variante y actualizaciones masivas con criterio controlado.">
+    <MetaContent>
         @if (_editorMode)
         {
             <button class="btn btn-outline-secondary" @onclick="BackToListMode"><i class="bi bi-arrow-left me-2"></i>Volver al listado</button>
@@ -22,8 +19,8 @@
             <span class="page-hero-chip"><i class="bi bi-tags"></i> @(_result?.TotalCount ?? 0) listas</span>
             <button class="btn btn-primary" @onclick="NewList">Nueva lista</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 @if (!_loaded)
 {
@@ -49,8 +46,7 @@ else
                             <div class="ui-card-subtitle">Cada lista define si trabaja a nivel producto o variante.</div>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-striped ui-compact-table">
+                    <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                             <thead><tr><th>Nombre</th><th>Base</th><th>Alcance</th><th>Ítems</th><th>Estado</th><th></th></tr></thead>
                             <tbody>
                             @foreach (var item in _result?.Items ?? Enumerable.Empty<PriceListListItemDto>())
@@ -61,12 +57,11 @@ else
                                     <td>@TargetTypeLabel(item.TargetType)</td>
                                     <td>@item.ItemsCount</td>
                                     <td><StatusBadge IsActive="@item.IsActive" /></td>
-                                    <td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditListAsync(item.Id)">Abrir</button></td>
+                                    <td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditListAsync(item.Id)" title="Abrir" aria-label="Abrir"><i class="bi bi-box-arrow-up-right"></i></button></td>
                                 </tr>
                             }
                             </tbody>
-                        </table>
-                    </div>
+                    </UnifiedGrid>
                 </div>
             </div>
 
@@ -91,8 +86,7 @@ else
                         }
                         else
                         {
-                            <div class="table-responsive">
-                                <table class="table table-striped ui-compact-table">
+                            <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                                     <thead><tr><th>SKU</th><th>Base</th><th>Precio lista</th><th>Estado</th></tr></thead>
                                     <tbody>
                                     @foreach (var item in _items)
@@ -105,8 +99,7 @@ else
                                         </tr>
                                     }
                                     </tbody>
-                                </table>
-                            </div>
+                            </UnifiedGrid>
                         }
                     </div>
                 </div>

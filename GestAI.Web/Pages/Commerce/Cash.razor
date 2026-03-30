@@ -5,16 +5,13 @@
 
 <PageTitle>Caja</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Caja operativa</div>
-        <div class="page-hero-subtitle">Control de apertura/cierre, saldo actual y trazabilidad de ingresos y egresos vinculados a la operatoria diaria.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Caja operativa"
+                Subtitle="Control de apertura/cierre, saldo actual y trazabilidad de ingresos y egresos vinculados a la operatoria diaria.">
+    <MetaContent>
         <span class="page-hero-chip"><i class="bi bi-safe2"></i> @(_dashboard?.Register.Name ?? "Caja principal")</span>
         <span class="page-hero-chip"><i class="bi bi-wallet2"></i> @((_dashboard?.CurrentBalance ?? 0m).ToString("C"))</span>
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 <FormFeedback Error="@_error" Success="@_success" ValidationErrors="@ValidationSummary" />
 <OperationalStateHint IsLoading="@_loading" HasError="@(!string.IsNullOrWhiteSpace(_error))" IsSaving="@_saving" IsDirty="false" />
@@ -110,8 +107,7 @@ else
 
     <div class="card ui-data-card"><div class="card-body">
         <div class="ui-card-header"><div><div class="ui-card-eyebrow">Trazabilidad</div><h5 class="ui-card-title">Últimos movimientos</h5><div class="ui-card-subtitle">Cada cobro, pago o ajuste queda visible con referencia, tercero y concepto.</div></div></div>
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
+        <UnifiedGrid TableClass="table ui-modern-grid align-middle">
                 <thead><tr><th>Fecha</th><th>Referencia</th><th>Origen</th><th>Tercero</th><th>Concepto</th><th>Ingreso</th><th>Egreso</th></tr></thead>
                 <tbody>
                 @foreach (var item in _dashboard.RecentMovements)
@@ -127,8 +123,7 @@ else
                     </tr>
                 }
                 </tbody>
-            </table>
-        </div>
+            </UnifiedGrid>
     </div></div>
 }
 

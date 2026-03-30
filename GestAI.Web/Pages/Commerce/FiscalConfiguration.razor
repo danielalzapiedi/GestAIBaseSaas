@@ -6,16 +6,14 @@
 
 <PageTitle>Configuración fiscal</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Configuración fiscal / ARCA</div>
-        <div class="page-hero-subtitle">Cada tenant puede decidir si opera en modo interno/mock o si deja preparada la conexión ARCA con sus credenciales y punto de venta.</div>
-    </div>
-    <div class="page-hero-meta">
-        <span class="page-hero-chip"><i class="bi bi-building-check"></i> Configuración por cuenta</span>
+<ListPageHeader Title="Configuración fiscal / ARCA"
+                Subtitle="Cada tenant puede decidir si opera en modo interno/mock o si deja preparada la conexión ARCA con sus credenciales y punto de venta."
+                ChipText="Configuración por cuenta"
+                ChipIconClass="bi bi-building-check">
+    <Actions>
         <button class="btn btn-primary" type="button" @onclick="Save" disabled="@_saving">Guardar configuración</button>
-    </div>
-</section>
+    </Actions>
+</ListPageHeader>
 
 @if (!string.IsNullOrWhiteSpace(_message))
 {

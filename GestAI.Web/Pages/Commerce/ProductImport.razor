@@ -4,12 +4,9 @@
 
 <PageTitle>Importación masiva</PageTitle>
 
-<section class="page-hero">
-    <div>
-        <div class="page-hero-title">Importación masiva de productos</div>
-        <div class="page-hero-subtitle">Carga controlada por CSV con preview previo, validaciones explícitas y soporte para variantes.</div>
-    </div>
-    <div class="page-hero-meta">
+<ListPageHeader Title="Importación masiva de productos"
+                Subtitle="Carga controlada por CSV con preview previo, validaciones explícitas y soporte para variantes.">
+    <MetaContent>
         @if (_showForm)
         {
             <button class="btn btn-outline-secondary" @onclick="CloseImportForm"><i class="bi bi-arrow-left me-2"></i>Volver al panel</button>
@@ -20,8 +17,8 @@
             <span class="page-hero-chip"><i class="bi bi-shield-check"></i> Validación por fila</span>
             <button class="btn btn-primary" @onclick="OpenImportForm"><i class="bi bi-upload me-2"></i>Importar productos</button>
         }
-    </div>
-</section>
+    </MetaContent>
+</ListPageHeader>
 
 <div class="ui-split-layout">
     <div class="@(_showForm ? "w-100" : string.Empty)">
@@ -74,8 +71,7 @@
             <div class="card ui-data-card">
                 <div class="card-body">
                     <div class="ui-card-header"><div><div class="ui-card-eyebrow">Resultado de preview</div><h5 class="ui-card-title">@($"{_preview.ValidRows} válidas / {_preview.ErrorRows} con error")</h5><div class="ui-card-subtitle">Antes de aplicar, revisá qué filas crearían o actualizarían datos.</div></div></div>
-                    <div class="table-responsive">
-                        <table class="table table-striped ui-compact-table">
+                    <UnifiedGrid TableClass="table ui-modern-grid ui-compact-table">
                             <thead><tr><th>Fila</th><th>Código</th><th>Nombre</th><th>Resultado</th><th>Detalle</th></tr></thead>
                             <tbody>
                             @foreach (var row in _preview.Rows)
@@ -89,8 +85,7 @@
                                 </tr>
                             }
                             </tbody>
-                        </table>
-                    </div>
+                    </UnifiedGrid>
                 </div>
             </div>
         }

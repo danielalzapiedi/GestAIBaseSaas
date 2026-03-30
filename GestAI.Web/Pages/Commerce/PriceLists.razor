@@ -57,7 +57,7 @@ else
                                     <td>@TargetTypeLabel(item.TargetType)</td>
                                     <td>@item.ItemsCount</td>
                                     <td><StatusBadge IsActive="@item.IsActive" /></td>
-                                    <td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditListAsync(item.Id)">Abrir</button></td>
+                                    <td><button class="btn btn-sm btn-outline-primary" @onclick="() => EditListAsync(item.Id)" title="Abrir" aria-label="Abrir"><i class="bi bi-box-arrow-up-right"></i></button></td>
                                 </tr>
                             }
                             </tbody>

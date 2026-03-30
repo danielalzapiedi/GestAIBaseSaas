@@ -42,7 +42,7 @@
                     <td>@item.WarehouseName</td>
                     <td class="fw-semibold">@item.TotalQuantity</td>
                     <td><StatusBadge Text="@DeliveryStatusLabel(item.Status)" CssClass="@DeliveryStatusClass(item.Status)" /></td>
-                    <td><a class="btn btn-sm btn-outline-primary" href="/delivery-notes/@item.Id">Detalle</a></td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="/delivery-notes/@item.Id" title="Detalle" aria-label="Detalle"><i class="bi bi-eye"></i></a></td>
                 </tr>
             }
             </tbody>

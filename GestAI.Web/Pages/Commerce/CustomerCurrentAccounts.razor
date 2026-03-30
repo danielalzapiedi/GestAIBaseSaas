@@ -45,7 +45,7 @@
                             <td>@item.Debit.ToString("C")</td>
                             <td>@item.Credit.ToString("C")</td>
                             <td class="fw-semibold">@item.Balance.ToString("C")</td>
-                            <td><button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => Select(item.PartyId)">Ver detalle</button></td>
+                            <td><button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => Select(item.PartyId)" title="Ver detalle" aria-label="Ver detalle"><i class="bi bi-eye"></i></button></td>
                         </tr>
                     }
                     </tbody>

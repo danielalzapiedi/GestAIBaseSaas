@@ -71,7 +71,7 @@ else
                                         <td><input class="form-control" type="number" step="0.01" @bind="line.Quantity" /></td>
                                         <td><span class="fw-semibold">@line.UnitPrice.ToString("C")</span></td>
                                         <td class="fw-semibold">@line.Subtotal.ToString("C")</td>
-                                        <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)">Quitar</button></td>
+                                        <td><button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(i)" title="Quitar línea" aria-label="Quitar línea"><i class="bi bi-trash"></i></button></td>
                                     </tr>
                                 }
                                 </tbody>

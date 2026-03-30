@@ -180,7 +180,7 @@ else
                                         <td>@item.IssuedAtLocal.ToString("dd/MM/yyyy")</td>
                                         <td class="fw-semibold">@item.Total.ToString("C")</td>
                                         <td><StatusBadge Text="@item.StatusLabel" CssClass="@item.StatusCssClass" /></td>
-                                        <td><a class="btn btn-sm btn-outline-primary" href="@item.Href">Abrir</a></td>
+                                        <td><a class="btn btn-sm btn-outline-primary" href="@item.Href" title="Abrir" aria-label="Abrir"><i class="bi bi-box-arrow-up-right"></i></a></td>
                                     </tr>
                                 }
                                 </tbody>

@@ -343,6 +343,14 @@
 - **Detalle técnico:** se definió `display:inline-flex` con `align-items:center` y `justify-content:center` para `btn-outline-secondary`, asegurando centrado consistente de label en alto/ancho.
 - **Impacto UX:** botones secundarios con lectura centrada y apariencia estable en headers, filtros y acciones de navegación.
 
+## Tarea aplicada (actualización 2026-03-30 - iconización de acciones unitarias en filas)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** cuando una fila tiene una sola acción, usar icono representativo (sin texto) como regla transversal.
+- **Detalle técnico:**
+  1. se migraron acciones unitarias de filas (`Abrir`, `Detalle`, `Ver detalle`, `Ver movimientos`, `Quitar`) a botones/iconos con `title` + `aria-label`,
+  2. se aplicó en grillas de `Dashboard`, `DeliveryNotes`, `Invoices`, `PriceLists`, `CustomerCurrentAccounts`, `SupplierCurrentAccounts`, `SupplierAccounts` y tablas de líneas en ventas/presupuestos/quick-sale.
+- **Impacto UX:** lectura visual más limpia en grillas con acción única y patrón consistente con el criterio de acciones contextuales.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

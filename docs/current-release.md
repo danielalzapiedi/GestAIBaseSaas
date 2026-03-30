@@ -331,6 +331,12 @@
   2. se normalizó escala visual de botones/chips dentro del header (`38px`, tipografía `0.9rem`, peso `600`) para alinearlos con los controles de filtros.
 - **Impacto UX:** cabeceras más homogéneas entre pantallas, con acciones visualmente armónicas (sin botones sobredimensionados).
 
+## Tarea aplicada (actualización 2026-03-30 - alineación izquierda uniforme en `ListPageHeader`)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** evitar variaciones derecha/izquierda en chips y acciones del header unificado.
+- **Detalle técnico:** en `.ui-list-page-header` se forzó layout con `justify-content/align-items` a inicio y en `.ui-list-page-header-meta` se fijó `width:100%` + `justify-content:flex-start` para que botones/chips queden siempre a la izquierda.
+- **Impacto UX:** criterio visual único en todas las pantallas con `ListPageHeader`, sin desplazamientos de acciones hacia la derecha según largo de texto.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

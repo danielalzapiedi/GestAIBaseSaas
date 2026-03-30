@@ -795,6 +795,20 @@ body {
     padding: .4rem .7rem;
 }
 
+.ui-list-page-header {
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.ui-list-page-header .ui-list-page-header-main,
+.ui-list-page-header .ui-list-page-header-meta {
+    width: 100%;
+}
+
+.ui-list-page-header .ui-list-page-header-meta {
+    justify-content: flex-start;
+}
+
 .ui-list-page-header .page-hero-chip {
     min-height: 38px;
     display: inline-flex;

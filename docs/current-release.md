@@ -62,6 +62,16 @@
 - **Detalle técnico:** en `Warehouses.razor` se reemplazó el literal `pageSize=100` por la constante `BranchOptionsPageSize = 50` para alinear UI con contrato del backend.
 - **Impacto funcional:** elimina la excepción al abrir Depósitos y restaura la carga de sucursales en filtro y alta/edición.
 
+## Tarea aplicada (actualización 2026-03-30 - mejoras UX/UI clientes)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Ajustes de usabilidad y armonía visual en la pantalla de Clientes.
+- **Detalle técnico:**
+  1. se agregó estado explícito de error de carga con acción de reintento,
+  2. se reequilibró la grilla de filtros y se añadió búsqueda por tecla Enter,
+  3. se mejoró legibilidad de tabla con truncado seguro en celdas largas,
+  4. se unificó ancho/alineación de acciones por fila para evitar saltos visuales.
+- **Impacto UX:** mayor claridad entre estados (error vs vacío), mejor ritmo visual en filtros y tabla, menor fricción operativa en búsquedas.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

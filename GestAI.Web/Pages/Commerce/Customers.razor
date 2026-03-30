@@ -1,6 +1,7 @@
 @page "/customers"
 @page "/customers/new"
 @page "/customers/edit/{EditId:int}"
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.AspNetCore.Components.Routing
 @using GestAI.Web.Dtos
 @using GestAI.Web.Service
@@ -68,6 +69,24 @@ else if (IsEditorRoute)
         </div>
     </div>
 }
+else if (HasLoadError)
+{
+    <div class="card ui-data-card">
+        <div class="card-body">
+            <div class="ui-card-header">
+                <div>
+                    <div class="ui-card-eyebrow">Error de carga</div>
+                    <h5 class="ui-card-title">No pudimos obtener los clientes</h5>
+                    <div class="ui-card-subtitle">Revisá la conexión o intentá nuevamente en unos segundos.</div>
+                </div>
+            </div>
+            <FormFeedback Error="@_error" />
+            <div class="ui-action-bar">
+                <button class="btn btn-outline-primary" @onclick="Load"><i class="bi bi-arrow-clockwise me-2"></i>Reintentar</button>
+            </div>
+        </div>
+    </div>
+}
 else if (_result?.Items.Count == 0)
 {
     <FormFeedback Error="@_error" Success="@_success" />
@@ -82,10 +101,10 @@ else
     <FormFeedback Error="@_error" Success="@_success" />
     <div class="card ui-filter-card"><div class="card-body">
         <div class="row g-2 align-items-end">
-            <div class="col-md-4"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" placeholder="Nombre, doc, teléfono" /></div>
-            <div class="col-md-3"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
-            <div class="col-md-2"><button class="btn btn-outline-primary w-100" @onclick="Search">Buscar</button></div>
-            <div class="col-md-1"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters">Limpiar</button></div>
+            <div class="col-lg-5 col-md-12"><label class="form-label">Buscar</label><input class="form-control" @bind="_search" @onkeydown="HandleSearchKeyDown" placeholder="Nombre, doc, teléfono" /></div>
+            <div class="col-lg-3 col-md-6"><label class="form-label">Estado</label><select class="form-select" @bind="_status"><option value="">Todos</option><option value="true">Activos</option><option value="false">Inactivos</option></select></div>
+            <div class="col-lg-2 col-md-3"><button class="btn btn-outline-primary w-100" @onclick="Search"><i class="bi bi-search me-2"></i>Buscar</button></div>
+            <div class="col-lg-2 col-md-3"><button class="btn btn-outline-secondary w-100" @onclick="ClearFilters"><i class="bi bi-eraser me-2"></i>Limpiar</button></div>
         </div>
     </div></div>
 
@@ -105,16 +124,16 @@ else
                 @foreach (var item in _result!.Items)
                 {
                     <tr>
-                        <td class="fw-semibold">@item.Name</td>
+                        <td class="fw-semibold ui-cell-truncate" title="@item.Name">@item.Name</td>
                         <td>@(item.DocumentNumber ?? "-")</td>
-                        <td>@item.Phone</td>
-                        <td>@item.City</td>
+                        <td class="ui-cell-truncate" title="@(item.Phone ?? "-")">@(item.Phone ?? "-")</td>
+                        <td class="ui-cell-truncate" title="@(item.City ?? "-")">@(item.City ?? "-")</td>
                         <td><StatusBadge Text="@item.CustomerType.ToString()" /></td>
                         <td><StatusBadge IsActive="@item.IsActive" /></td>
-                        <td>
-                            <div class="ui-inline-actions">
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)">Editar</button>
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)">@(item.IsActive ? "Desactivar" : "Activar")</button>
+                        <td class="text-end">
+                            <div class="ui-inline-actions ui-row-actions">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)"><i class="bi bi-pencil-square me-1"></i>Editar</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)"><i class="@($"bi {(item.IsActive ? "bi-toggle-off" : "bi-toggle-on")} me-1")"></i>@(item.IsActive ? "Desactivar" : "Activar")</button>
                             </div>
                         </td>
                     </tr>
@@ -150,6 +169,7 @@ else
 
     private bool IsNewRoute => Nav.Uri.EndsWith("/customers/new", StringComparison.OrdinalIgnoreCase);
     private bool IsEditorRoute => IsNewRoute || EditId.HasValue;
+    private bool HasLoadError => !IsEditorRoute && !string.IsNullOrWhiteSpace(_error) && (_result?.Items.Count ?? 0) == 0;
     private int TotalPages => _result is null || _result.TotalCount == 0 ? 1 : (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize);
 
     protected override async Task OnParametersSetAsync()
@@ -178,6 +198,12 @@ else
         _page = 1;
         await Load();
         Telemetry.Track("customers", "clear-filters", "success");
+    }
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            await Search();
     }
 
     private async Task Load()

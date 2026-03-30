@@ -293,6 +293,14 @@
   2. activación de `ActionsDropdown=\"true\"` en `UnifiedGrid` donde correspondía para evitar clipping del menú.
 - **Impacto UX:** criterio de interacción uniforme en todas las grillas con acciones múltiples, menor ruido visual y mejor consistencia operativa.
 
+## Tarea aplicada (actualización 2026-03-30 - estandarización visual de controles en filtros)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** volver `ListPageFilters` más genérico para que inputs/selects/botones se vean consistentes en todas las pantallas de listado.
+- **Detalle técnico:**
+  1. `ListPageFilters` ahora expone una clase contenedora común (`ui-list-page-filters`) para normalizar estilo descendente,
+  2. se definieron reglas visuales compartidas para labels, `form-control`, `form-select` y botones dentro del contenedor (altura, radios, foco, tipografía, sombra).
+- **Impacto UX:** los filtros conservan campos propios por pantalla, pero con un lenguaje visual consistente entre módulos.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

@@ -132,5 +132,5 @@ Aunque existe `OperationalStateHint` y `EmptyState`, no todas las pantallas lo a
 
 ### Próximo batch recomendado (para 100% consistencia de menú)
 1. Introducir `UiCardHeader` reusable para eliminar variaciones de eyebrow/título/subtítulo en todas las cards.
-2. Homogeneizar acciones por fila (menú contextual) en remanentes que hoy usan botones inline mixtos.
-3. Consolidar variantes de chips KPI para tablero/listados en un token visual compartido.
+2. Consolidar variantes de chips KPI para tablero/listados en un token visual compartido.
+3. Revisar acciones unitarias (cuando hay una sola acción) para definir si conviene mantener botón directo o también menú contextual.

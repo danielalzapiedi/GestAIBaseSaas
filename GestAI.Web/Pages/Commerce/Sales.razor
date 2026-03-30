@@ -67,7 +67,7 @@
             {
                 <div class="card ui-data-card @(_showForm ? "d-none" : string.Empty)"><div class="card-body">
                     <div class="ui-card-header"><div><div class="ui-card-eyebrow">Circuito comercial</div><h5 class="ui-card-title">Listado de ventas</h5><div class="ui-card-subtitle">Cliente, origen y estado en una sola vista operativa.</div></div></div>
-                    <UnifiedGrid>
+                    <UnifiedGrid ActionsDropdown="true">
                             <thead><tr><th>Comprobante</th><th>Cliente</th><th>Fecha</th><th>Origen</th><th>Total</th><th>Estado</th><th></th></tr></thead>
                             <tbody>
                             @foreach (var item in _result!.Items)
@@ -79,7 +79,18 @@
                                     <td>@(item.SourceQuoteId.HasValue ? item.SourceQuoteNumber : "Manual")</td>
                                     <td><div class="ui-table-stack"><span class="fw-semibold">@item.Total.ToString("C")</span><span class="ui-table-meta">Subtotal @item.Subtotal.ToString("C")</span></div></td>
                                     <td><StatusBadge Text="@SaleStatusLabel(item.Status)" CssClass="@SaleStatusClass(item.Status)" /></td>
-                                    <td><div class="ui-inline-actions"><button class="btn btn-sm btn-outline-primary" type="button" @onclick="() => Edit(item.Id)">Editar</button><button class="btn btn-sm btn-outline-secondary" type="button" @onclick="() => OpenDetail(item.Id)">Detalle</button></div></td>
+                                    <td class="text-end">
+                                        <div class="dropdown dropstart table-actions">
+                                            <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                                <span class="visually-hidden">Acciones</span>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                                <li><button class="dropdown-item" type="button" @onclick="() => Edit(item.Id)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                                <li><button class="dropdown-item" type="button" @onclick="() => OpenDetail(item.Id)"><i class="bi bi-eye me-2"></i>Detalle</button></li>
+                                            </ul>
+                                        </div>
+                                    </td>
                                 </tr>
                             }
                             </tbody>

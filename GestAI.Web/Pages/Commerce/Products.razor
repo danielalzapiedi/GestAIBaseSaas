@@ -87,7 +87,7 @@
                         </div>
                     </div>
 
-                    <UnifiedGrid>
+                    <UnifiedGrid ActionsDropdown="true">
                             <thead>
                                 <tr>
                                     <th>Producto</th>
@@ -129,10 +129,16 @@
                                         </td>
                                         <td><StatusBadge Text="@(item.VariantsCount == 0 ? "Sin variantes" : item.VariantsCount == 1 ? "1 variante" : $"{item.VariantsCount} variantes")" CssClass="@(item.VariantsCount > 0 ? "ui-badge ui-badge-primary" : "ui-badge ui-badge-neutral")" /></td>
                                         <td><StatusBadge IsActive="@item.IsActive" /></td>
-                                        <td>
-                                            <div class="ui-inline-actions">
-                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(item)">Editar</button>
-                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Toggle(item)">@(item.IsActive ? "Desactivar" : "Activar")</button>
+                                        <td class="text-end">
+                                            <div class="dropdown dropstart table-actions">
+                                                <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                                    <i class="bi bi-three-dots-vertical"></i>
+                                                    <span class="visually-hidden">Acciones</span>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                                    <li><button class="dropdown-item" type="button" @onclick="() => Edit(item)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                                    <li><button class="dropdown-item" type="button" @onclick="() => Toggle(item)"><i class="@($"bi {(item.IsActive ? "bi-toggle-off" : "bi-toggle-on")} me-2")"></i>@(item.IsActive ? "Desactivar" : "Activar")</button></li>
+                                                </ul>
                                             </div>
                                         </td>
                                     </tr>
@@ -260,10 +266,16 @@
                                                 <td>@variant.AttributesSummary</td>
                                                 <td>@variant.SalePrice.ToString("C")</td>
                                                 <td><StatusBadge IsActive="@variant.IsActive" /></td>
-                                                <td>
-                                                    <div class="ui-inline-actions">
-                                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditVariant(variant)">Editar</button>
-                                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleVariant(variant)">@(variant.IsActive ? "Desactivar" : "Activar")</button>
+                                                <td class="text-end">
+                                                    <div class="dropdown dropstart table-actions">
+                                                        <button class="ui-kebab-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Acciones">
+                                                            <i class="bi bi-three-dots-vertical"></i>
+                                                            <span class="visually-hidden">Acciones</span>
+                                                        </button>
+                                                        <ul class="dropdown-menu dropdown-menu-end ui-actions-menu">
+                                                            <li><button class="dropdown-item" type="button" @onclick="() => EditVariant(variant)"><i class="bi bi-pencil-square me-2"></i>Editar</button></li>
+                                                            <li><button class="dropdown-item" type="button" @onclick="() => ToggleVariant(variant)"><i class="@($"bi {(variant.IsActive ? "bi-toggle-off" : "bi-toggle-on")} me-2")"></i>@(variant.IsActive ? "Desactivar" : "Activar")</button></li>
+                                                        </ul>
                                                     </div>
                                                 </td>
                                             </tr>

@@ -285,6 +285,14 @@
   2. estado principal migrado a `ListPageHeader` con `MetaContent` para chips KPI/contexto.
 - **Impacto UX:** `Dashboard` converge en jerarquía visual de cabecera con el resto del menú sin perder su layout funcional de tablero.
 
+## Tarea aplicada (actualización 2026-03-30 - convergencia de acciones por fila en grillas)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** aplicar la premisa transversal de acciones por fila: cuando existen múltiples acciones, usar menú de tres puntos.
+- **Detalle técnico:**
+  1. migración de filas con acciones múltiples a dropdown contextual (`ui-kebab-trigger` + `ui-actions-menu`) en `Branches`, `Suppliers`, `Warehouses`, `Categories`, `Products` (incluye variantes), `Sales`, `Purchases`, `Tenants` y `Saas/Users`,
+  2. activación de `ActionsDropdown=\"true\"` en `UnifiedGrid` donde correspondía para evitar clipping del menú.
+- **Impacto UX:** criterio de interacción uniforme en todas las grillas con acciones múltiples, menor ruido visual y mejor consistencia operativa.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.

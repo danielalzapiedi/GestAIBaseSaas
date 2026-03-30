@@ -72,6 +72,12 @@
   4. se migraron acciones por fila a menú contextual de tres puntos cuando hay múltiples acciones disponibles, con estilo moderno no invasivo (ícono sin apariencia de botón tradicional).
 - **Impacto UX:** mayor claridad entre estados (error vs vacío), mejor ritmo visual en filtros y tabla, menor fricción operativa en búsquedas.
 
+## Tarea aplicada (actualización 2026-03-30 - ajuste estado visual editor)
+- **Modo:** Resolver bugs (diagnóstico continuo, sin releases activas).
+- **Tarea:** Corrección de `OperationalStateHint` para evitar mostrar “Estado: success” de forma permanente en formularios de alta/edición.
+- **Detalle técnico:** se eliminó el estado success por default del componente compartido; ahora sólo renderiza cuando aplica un estado operativo real (`loading`, `error`, `guardando` o `con cambios pendientes`).
+- **Impacto UX:** desaparece el mensaje de éxito falso en editor de Clientes (y pantallas que reutilizan el componente), reduciendo ruido y confusión.
+
 ## Flujo de trabajo aplicado (modo bugs)
 1. **Product Manager:** confirmó que la tarea pertenece al modo diagnóstico continuo (sin releases).
 2. **Analyst:** clasificó el incidente como bug funcional de integración UI/API por contrato de paginación.
